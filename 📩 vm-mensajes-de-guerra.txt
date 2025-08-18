@@ -1,0 +1,140 @@
+# 🧠 Este servidor se utiliza como 
+# 🐧
+
+#=========================================================================================================================
+[🪖📩 ce-500]::
+# Documentación oficial kismet :             https://www.kismetwireless.net/docs/readme/installing/linux/
+# documentación oficial clamav :             https://docs.clamav.net/
+
+#=========================================================================================================================
+[🪖📩INSTALACIONES]::
+# instalaciones 
+apt update
+apt upgrade -y
+
+## ssh
+## desde la consola del contenedor a través de proxmox
+# Amplio tiempo de ssh y deshabilitar la suspensión
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+
+# Realizo unos cambios en el archivo de configuración
+nano /etc/ssh/sshd_config
+----------------------------------------------------------------------------
+    Port 22
+    PasswordAuthentication yes
+    PermitRootLogin yes
+----------------------------------------------------------------------------
+
+# Inicializo el servicio y lo habilito para inicio de la sesión
+systemctl start sshd
+systemctl enable sshd
+systemctl status sshd
+
+# reinicio
+reboot now
+
+# creo una carpeta en el contenedor e instalo el script
+mkdir /ce-500 && cd /ce-500
+apt install vim -y
+vim script-00.sh
+# i - (shift + botón derecho):
+--------------------------------------------------------------------------------------
+    # código de /SCRIPTS/script-00.sh de este github
+--------------------------------------------------------------------------------------
+
+# doy permisos y hago la instalación
+chmod +x script-00.sh
+./script-00.sh
+source ~/.bashrc
+
+#=========================================================================================================================
+[🪖📩 INSTALAR ANTIVIRUS]::
+# paquetes de Linux de utilización rápida y práctica (escaneres):
+# 💯 realizo la instalación de un antivirus para automatizar el escaner de archivos corruptos en el servidor
+
+# instalación antivirus Linux:
+## 👹 clamav::
+apt install clamav
+apt install clamav-freshclam
+# busco actualizaciones en la base de datos
+sudo freshclam
+# escaneo manualmente el sistema
+# clamscan -[parámetros] [ruta de carpeta]
+# sudo clamscan -r /
+sudo clamscan -r /home
+
+# 👹 formas de uso con clamav:
+# guardo un registro de archivos infectados
+sudo clamscan -l /ruta/al/archivo.txt -r /ruta/al/directorio
+
+# mandar archivo a cuarentena (para no causar daño al servidor):
+# sudo clamscan --move=/path/to/quarantine -r /ruta/al/directorio
+sudo clamscan --move=/path/to/quarantine -r /ruta/al/directorio -l /ruta/al/archivo.txt
+
+# borrar archivos maliciosos:
+# sudo clamscan --remove -r /ruta/al/directorio
+sudo clamscan --remove -r /ruta/al/directorio -l /ruta/al/archivo.txt
+
+# actualizar base de datos 
+sudo freshclam
+
+# lo que puedo hacer es un cron y un alias para que automatice el análisis de virus. 
+# 🆗
+
+
+#=========================================================================================================================
+[🪖📩 MENSAJES PROGRAMADOS]::
+# 🧠 enviará cad día un mensaje programado a la misma hora (siempre que lo haya), ordenando los archivos a enviar por orden.
+# 🧠 una vez enviado, se clasifica el mensaje dentro de la carpeta /enviados de la misma ruta y aunque permanezca en el servidor no se volverá a mandar dicho mensaje.
+# 🧠 al mover el mensaje a la carpeta enviados le cambia el nombre por la fecha y luego su nombree original para que no sobreescriban. Ej: 20250619_082815_nombre.txt
+
+# creo una carpeta con los mensajes
+mkdir /isaac/mensajes
+
+# instalo postfix
+apt install postfix
+    - web
+
+# 👍📮 creo el script en el caso que el correo remitente sea de dominio
+vim enviar-mensaje.sh
+--------------------------------------------------------------------------
+#!/bin/bash
+
+CARPETA="/isaac/mensajes"
+DESTINO="to@dominio.es"               # DESTINO="primero@dominio.com, segundo@dominio.com, tercero@dominio.com"
+DESTINO_OCULTO="bcc@dominio.com"      # DESTINO_OCULTO="primero@dominio.com, segundo@dominio.com, tercero@dominio.com"
+ASUNTO="Nuevo mensaje"
+REMITENTE="from@dominio.es"           # correo real
+DESTINO_ENVIADOS="$CARPETA/enviados"
+
+# Crear carpeta de enviados si no existe
+mkdir -p "$DESTINO_ENVIADOS"
+
+# Buscar el primer archivo por orden
+archivo=$(ls "$CARPETA"/*.txt 2>/dev/null | sort | head -n 1)
+
+if [ -n "$archivo" ]; then
+    echo "Enviando: $archivo a $DESTINO (BCC: $DESTINO_OCULTO)"
+
+    (
+        echo "Subject: $ASUNTO"
+        echo "From: $REMITENTE"
+        echo "To: $DESTINO"
+        echo "Bcc: $DESTINO_OCULTO"
+        echo "Content-Type: text/plain; charset=utf-8"
+        echo
+        cat "$archivo"
+    ) | sendmail -f "$REMITENTE" -t
+
+    if [ $? -eq 0 ]; then
+        echo "Correo enviado exitosamente."
+        nombre=$(basename "$archivo")
+        timestamp=$(date +%Y%m%d_%H%M%S)
+        mv "$archivo" "$DESTINO_ENVIADOS/${timestamp}_$nombre"
+    else
+        echo "Error al enviar el correo."
+    fi
+else
+    echo "No hay mensajes pendientes por enviar."
+fi
+--------------------------------------------------------------------------
