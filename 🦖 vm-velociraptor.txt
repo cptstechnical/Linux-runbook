@@ -1,0 +1,268 @@
+# 🧠 vm-velociraptor → DFIR / EDR / Análisis forense
+# 🧠 Velociraptor es una herramienta de DFIR de respuesta a incidentes que ayuda a investigar incidencias en tiempo real.
+# 🐧 Lo voy a dejar configurado y lo voy a utilizar exclusivamente cuando pase algo sospechoso o grave.
+#===========================================================================================================================
+[🦖INSTALACIÓN ETHERNET]:
+# Versiones                            : https://github.com/Velocidex/velociraptor/releases
+# Documentación oficial                : https://github.com/Velocidex/velociraptor?tab=readme-ov-file
+# Documentación oficial                : https://github.com/Velocidex/velociraptor
+# Documentación oficial                : https://docs.velociraptor.app/
+
+#=========================================================================================================================
+[🦖INSTALACIONES]::
+# instalaciones 
+apt update
+apt upgrade -y
+
+## ssh
+## desde la consola del contenedor a través de proxmox
+# Amplio tiempo de ssh y deshabilitar la suspensión
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+
+# Realizo unos cambios en el archivo de configuración
+nano /etc/ssh/sshd_config
+----------------------------------------------------------------------------
+    Port 22
+    PasswordAuthentication yes
+    PermitRootLogin yes
+----------------------------------------------------------------------------
+
+# Inicializo el servicio y lo habilito para inicio de la sesión
+systemctl start sshd
+systemctl enable sshd
+systemctl status sshd
+
+# reinicio
+reboot now
+
+# creo una carpeta en el contenedor e instalo el script
+mkdir /ce-500 && cd /ce-500
+apt install vim -y
+vim script-00.sh
+# i - (shift + botón derecho):
+--------------------------------------------------------------------------------------
+    # código de /SCRIPTS/script-00.sh de este github
+--------------------------------------------------------------------------------------
+
+# doy permisos y hago la instalación
+chmod +x script-00.sh
+./script-00.sh
+source ~/.bashrc
+
+#===========================================================================================================================
+[🦖INSTALACIÓN SERVIDOR-VELOCIRAPTOR EN LINUX]:
+# Herramientas básicas
+apt update && sudo apt install -y wget unzip openssl
+
+# Descargar binario
+# Comprobar la última versión antes de descargar : https://github.com/Velocidex/velociraptor/releases
+apt install wget -y
+wget https://github.com/Velocidex/velociraptor/releases/latest/download/velociraptor-v0.74.1-linux-amd64 -O velociraptor
+chmod +x velociraptor
+mv velociraptor /usr/local/bin/
+
+# Inicializar configuración y genera el archivo server.config.yaml
+velociraptor config generate -i
+    > Self Signed SSL
+    > Linux
+    > /opt/velociraptor
+    > logs
+    > 1 Year
+    > localhost
+    > None - Configure DNS manually
+    > y
+  # Frontend (servidor principal)
+  # Puerto del servidor (por defecto: 8000 frontend / 8889 GUI)
+  # Habilita Web UI
+  # Crea certificados (mTLS incluidos)
+  # Guarda el archivo final como server.config.yaml
+  # ⚠️ cuando me pregunte por el usuario y contraseña puedo crear tantos usuarios como quiera
+  # cuando quiera dejar de agregar usuario dejo una sola vez los campos vacios, pulsando dos intros para pasar al siguiente apartado
+    > usuario: root
+    > contraseña: root
+# genera un archivo parecido a velociraptor_server_0.74.1_amd64.deb, que es el instalador del servidor para montar otro servidor
+velociraptor --config server.config.yaml debian server
+# Genera la configuración del cliente a partir de la configuración del servidor y la guarda en client.config.yaml
+velociraptor --config server.config.yaml config client > client.config.yaml
+
+# (Opcional) Ejecutarlo como servicio systemd
+vim /etc/systemd/system/velociraptor.service
+-------------------------------------------------------------------
+[Unit]
+Description=Velociraptor Server
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/velociraptor --config /ce-500/server.config.yaml frontend
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+-------------------------------------------------------------------
+
+# modifico el archivo 
+vim /ce-500/server.config.yaml
+-------------------------------------------------------------------
+# dentro de larchivo busco los 127.0.0.1 y los cambio por 0.0.0.0
+# esto hace que se pueda escucha fuera de la máquina (dentro del mismo host)
+-------------------------------------------------------------------
+
+# activar
+sudo systemctl daemon-reexec
+sudo systemctl enable --now velociraptor
+
+# comprobar si escucha el puerto
+sudo ss -tuln | grep 8889 
+
+# pruebo en navegador
+https://<IP_SERVIDOR_LINUX>:8889
+
+#===========================================================================================================================
+[🦖CONFIGURACIÓN DEL AGENTE]:
+# 🔁 este proceso tengo que repetirlo por cada cliente (agente)
+
+# velociraptor necesita crear un agente para conectar con el dispositivo cliente
+# como anteriormente ya he creado la configuración del cliente compruebo que tengo el archivo 
+find /ce-500/client.config.yaml
+    # /ce-500/client.config.yaml
+
+# genero el binario que me va a generar el archivo de instalación según la distribución de linux o el s.o
+# en mi caso lo voy hacer para un servicor debian
+# velociraptor --config client.config.yaml windows client
+velociraptor --config client.config.yaml debian client
+
+# migro el archivo desde la máquina principal 
+exit
+cp /var/lib/lxc/vm-velociraptor/rootfs/ce-500/velociraptor_client_0.74.1_amd64.deb /var/lib/lxc/vm-apache/rootfs/ce-500/
+
+# entro en la máquina del agente (que en este caso es vm-apache) e instalo el paquete
+cd /ce-500
+sudo dpkg -i velociraptor_client_0.74.1_amd64.deb
+
+# cambio la configuración
+vim /etc/velociraptor/client.config.yaml
+-------------------------------------------------------------------
+...
+server_urls:
+  - https://<IP_DEL_SERVIDOR_VELOCIRAPTOR>:8000/                    # el puerto 8000 es la api por la que se van a transmitir los agentes
+...
+-------------------------------------------------------------------
+
+# creo un servicio 
+sudo vim /etc/systemd/system/velociraptor-client.service
+-------------------------------------------------------------------
+[Unit]
+Description=Velociraptor Client
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/velociraptor_client --config /etc/velociraptor/client.config.yaml client
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+-------------------------------------------------------------------
+
+# habilito servicios
+sudo systemctl daemon-reexec
+systemctl start velociraptor-client
+systemctl enable velociraptor-client
+systemctl status velociraptor-client
+
+
+#===========================================================================================================================
+[🦖CONFIGURACIÓN INTERFACE WEB]:
+# me dirijo a la interface y activo los clientes (agentes/SNMP)
+https://<IP_DEL_SERVIDOR_VELOCIRAPTOR>:8889/
+
+# 🔍 pulso en search clients que en las nuevas versiones es pulsando en la lupa del buscador 
+# lo activo y pulso en "Client ID", con esto desabilito más opciones de la interface de los clientes
+
+# 🗂️ artifacts     :: módulos predefinidos escritos en VQL (Velociraptor Query Language) que saben qué datos recolectar y cómo hacerlo (también pueden ser desarrollados).
+# 🗂️ hunts         :: es un job orquestado donde selecciono artifacts de forma masiva o programada sobre los clientes.
+#                   + en un caso habitual solo voy a configurar directamente los hunt (las búsquedas), cuando agrego un hunt se agrega automáticamente su artifacts al menú.
+
+# 🦖 velociraptor es una herramienta de ciberseguridad que se usa principalmente para cuando pasa algo sospechoso o grave (como un ataque)
+# Generic.Client.Info
+# el hunt Generic.Client.Info invoca el Artifact del mismo nombren del servidor cliente para conocer el inventario básico
+Hunt manager > New Hunt 
+    > Include condition: Run everywhere
+    > Exclude condition: Run everywhere
+> Select Artifacts
+    > Generic.Client.Info
+> Launch
+
+# 🦖 otros hunt que puedo configurar:
++------------------------------------+----------------------------------------+-----------------------------------------------------------------------+
+| Tarea                              | Artifact / Hunt                        | Para qué sirve                                                        |
++------------------------------------+----------------------------------------+-----------------------------------------------------------------------+
+| Listar procesos                    | Generic.System.PsList                  | Ver qué procesos corren y detectar “extraños”.                        |
+| Conexiones de red                  | Generic.System.Netstat                 | Ver puertos abiertos y conexiones activas.                            |
+| Módulos de kernel cargados         | Linux.System.KernelModules             | Asegurar sólo módulos deseados.                                       |
+| Servicios habilitados (systemd)    | Linux.System.Services                  | Identificar daemons y su estado.                                      |
+| Usuarios locales                   | Linux.System.Users.LocalAccounts       | Comprobar usuarios, shells y UID.                                     |
+| Listado de paquetes instalados     | Linux.System.Packages                  | Inventario de versiones de software.                                  |
+| Tareas programadas (cron)          | Linux.System.Crontab                   | Ver cronjobs de todos los usuarios.                                   |
+| Integridad de ficheros críticos    | Linux.File.Integrity                   | Detectar cambios no autorizados en /etc, etc.                         |
+| Archivos modificados               | Linux.File.ModificationTimes           | Detectar modificaciones en archivos importantes.                      |
+| Logs del sistema                   | Linux.System.Logs                      | Verificación de logs para actividades sospechosas.                    |
+| Verificación de firewalls          | Linux.Network.FirewallStatus           | Asegurar la configuración del firewall.                               |
+| Tiempos de arranque                | Linux.System.Uptime                    | Verificar cuándo se inició el sistema.                                |
+| Llamadas a funciones de kernel     | Linux.System.KernelSysCalls            | Detectar actividades sospechosas en el kernel.                        |
+| Accesos a archivos importantes     | Linux.File.AccessLog                   | Ver qué usuarios han accedido a archivos críticos.                    |
+| Directorios en uso                 | Linux.System.FileDescriptors           | Ver qué archivos están siendo usados por procesos.                    |
+| Llamadas a scripts shell           | Linux.System.BashHistory               | Ver comandos ejecutados en bash.                                      |
+| Tiempos de conexión a red          | Linux.Network.ConnectionTimes          | Verificar tiempos de conexión para detectar patrones.                 |
+| Actividades en el sistema          | Linux.System.ProcessesByUser           | Ver qué procesos son ejecutados por qué usuario.                      |
+| Archivos de configuración          | Linux.File.ConfigurationFiles          | Comprobar la integridad de archivos de configuración.                 |
+| Detección de rootkits              | Linux.System.RootkitDetection          | Identificar rootkits en el sistema.                                   |
+| Verificación de módulos cargados   | Linux.System.ModuleFiles               | Comprobar los módulos cargados en el sistema.                         |
+| Archivos de usuario ocultos        | Linux.File.HiddenFiles                 | Detectar archivos ocultos o anómalos en el sistema.                   |
+| Comandos de red ejecutados         | Linux.Network.CommandHistory           | Ver qué comandos de red han sido ejecutados.                          |
+| Detección de procesos inyectados   | Linux.System.InjectedProcesses         | Detectar si hay procesos inyectados por un atacante.                  |
+| Actividades de mount/unmount       | Linux.System.MountActivity             | Ver qué dispositivos están siendo montados/desmontados.               |
+| Sesiones SSH activas               | Linux.System.SSHSessions               | Verificar si hay sesiones SSH activas.                                |
+| Usuarios y grupos de sudo          | Linux.System.Sudoers                   | Comprobar quién tiene privilegios de sudo.                            |
+| Almacenamiento de credenciales     | Linux.System.Passwords                 | Buscar archivos que contienen contraseñas o credenciales.             |
+| Claves SSH almacenadas             | Linux.File.SSHKeys                     | Buscar claves SSH almacenadas en el sistema.                          |
+| Análisis de logs de autenticación  | Linux.System.AuthLogs                  | Buscar intentos fallidos de autenticación o accesos sospechosos.      |
+| Configuración de Sudo              | Linux.System.Sudoers                   | Verificar configuraciones de sudo y posibles escaladas de privilegios.|
+| Información sobre el kernel        | Linux.System.KernelInfo                | Obtener información sobre el kernel utilizado.                        |
+| Conexiones de red (SSH)            | Linux.Network.SSHConnections           | Ver conexiones SSH activas e inactivas.                               |
+| Información de los usuarios        | Linux.System.Users.All                 | Obtener una lista de todos los usuarios en el sistema.                |
+| Información sobre mounts           | Linux.System.MountInfo                 | Verificar dispositivos montados en el sistema.                        |
+| Conexiones VPN                     | Linux.Network.VPNConnections           | Monitorear conexiones VPN activas.                                    |
+| Información de interfaces de red   | Linux.Network.Interfaces               | Obtener información sobre las interfaces de red.                      |
+| Actividades en dispositivos USB    | Linux.System.USBActivity               | Monitorear actividades sospechosas en puertos USB.                    |
+| Estadísticas de uso de disco       | Linux.System.DiskUsage                 | Verificar el uso del disco y posibles cambios.                        |
+| Verificación de hostname           | Linux.System.Hostname                  | Comprobar que el hostname no ha sido cambiado.                        |
+| Listado de procesos por UID        | Linux.System.ProcessByUID              | Ver qué procesos están asociados a qué UID.                           |
+| Revisión de rutas de acceso        | Linux.System.PATH                      | Ver qué rutas de acceso a binarios están configuradas.                |
+| Información sobre grupos           | Linux.System.Groups                    | Ver grupos y sus miembros.                                            |
+| Análisis de scripts maliciosos     | Linux.System.MaliciousScripts          | Detectar la presencia de scripts maliciosos.                          |
+| Análisis de puertos abiertos       | Linux.Network.PortScan                 | Realizar escaneo de puertos para detectar servicios expuestos.        |
+| Información sobre logs de seguridad| Linux.System.SecurityLogs              | Revisión de logs de seguridad del sistema.                            |
++------------------------------------+----------------------------------------+-----------------------------------------------------------------------+
+
+# otro ejemplo...
+# permitir ver los mapeos de memoria de procesos en Linux
+Hunt manager > New Hunt 
+    > Tag: Linux-memoria
+    > Orgs: <USUARIO_ADMIN>
+    > Start Hunt Immediately
+> Select Artifacts
+    > Linux.Sys.Maps
+> Configure parameters
+    > processRegex: .*                                     # filtra todos los procesos por su ruta de ejecución
+> Specify Resources
+    > CPU Limit Percent: 25                                # suficiente para no saturar el sistema
+    > IOps/Sec: 50                                         # o más si el host es potente
+    > Max Execution Time in Seconds: 300                   # (5 minutos) es un valor razonable
+    > Max Idle Time in Seconds: 60                         # 60 o 120 segundos
+    > Max Rows: 10000                                      # puedes ajustar según tus necesidades
+    > Max Logs: 10000
+    > Max MB uploaded: 50                                  # 50 o 100 (depende de cuánto esperes obtener)
+    > Trace Frequency Seconds: 10
+    > Urgent: [x] Skip queues and run query urgently       # omitir colas y ejecutar consultas con urgencia
