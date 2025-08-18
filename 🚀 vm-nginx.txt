@@ -1,0 +1,765 @@
+# 🧠 Nginx es un servidor web y proxy reverso eficiente y ligero, optimizado para manejar altas cargas y tráfico concurrente.
+# 🐧 Esta máquina la voy a utilizar como honeypot y me va a registrar decoys, simulación de rutas y gestión con mongodb (sin paquetes externos).
+#=========================================================================================================================
+[🚀WHITE WHALE]::
+# Documentación configurar Node 		: https://www.digitalocean.com/community/tutorials/how-to-set-up-a-node-js-application-for-production-on-ubuntu-20-04-es?
+# Documentación configurar Nginx 		: https://carlosazaustre.es/como-configurar-nginx-con-node-js-en-produccion?
+# Documentación certificado 			: https://medium.com/@ali_97803/deploy-de-una-app-de-express-js-con-github-actions-usando-nginx-en-modo-https-855126f93164#82a4
+# Documentación no-oficial certificados		: https://rlodeiro.info/blog/certificado-autofirmado/
+# Documentación oficial de Lets Encrypt		: https://letsencrypt.org/
+# Documentación OpenSSL				: https://docs.openssl.org/3.0/man7/migration_guide/
+# Documentación no-oficial MAC			: https://es.linux-console.net/?p=8489
+# Documentación de mongodb	   		: https://www.mongodb.com/docs/
+#						: https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-debian/
+#						: https://www.mongodb.com/docs/manual/reference/configuration-options/#systemlog
+#						: https://www.mongodb.com/docs/manual/
+
+
+#=========================================================================================================================
+[🚀INSTALACIONES]::
+# instalaciones 
+apt update
+apt upgrade -y
+
+## ssh
+## desde la consola del contenedor a través de proxmox
+# Amplio tiempo de ssh y deshabilitar la suspensión
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+
+# Realizo unos cambios en el archivo de configuración
+nano /etc/ssh/sshd_config
+----------------------------------------------------------------------------
+    Port 22
+    PasswordAuthentication yes
+    PermitRootLogin yes
+----------------------------------------------------------------------------
+
+# Inicializo el servicio y lo habilito para inicio de la sesión
+systemctl start sshd
+systemctl enable sshd
+systemctl status sshd
+
+# reinicio
+reboot now
+
+# creo una carpeta en el contenedor e instalo el script
+mkdir /ce-500 && cd /ce-500
+apt install vim -y
+vim script-00.sh
+# i - (shift + botón derecho):
+--------------------------------------------------------------------------------------
+    # código de /SCRIPTS/script-00.sh de este github
+--------------------------------------------------------------------------------------
+
+# doy permisos y hago la instalación
+chmod +x script-00.sh
+./script-00.sh
+source ~/.bashrc
+
+#=========================================================================================================================
+[🚀SERVIDOR NGINX EXPRESS.JS]:
+🧑‍🎓 NODE  :: Entorno de ejecución para JavaScript en el servidor. Permite ejecutar código JavaScript fuera del navegador.
+🧑‍🎓 NGINX :: Servidor web y proxy inverso. Es ligero, rápido y ampliamente utilizado para actuar como proxy inverso para aplicaciones.
+🧑‍🎓 PM2   :: Gestor de procesos para aplicaciones Node.js. Mantiene las aplicaciones en ejecución, maneja ciclos de vida y garantiza su disponibilidad, incluso después de fallos o reinicios del servidor.
+
+## Configuro express en el servidor de manera simple para comprobar que funcione::
+## configuración express
+
+# Instalo Node.js y npm 
+sudo apt update
+sudo apt install -y nodejs npm
+node -v
+npm -v
+
+# instalo nginx 
+apt install -y nginx
+systemctl status nginx
+
+# Instalación inicial:
+	mkdir /var/www/express && cd /var/www/express
+	npm init -y
+	npm install express
+	npm install --save-dev typescript @types/node @types/express ts-node
+	# Para ayudar a TypeScript a comprender los tipos utilizados en bibliotecas externas
+	npm install --save-dev @types/node @types/express
+	# Para que los cambios en TypeScript se cambie automáticamente sin reiniciar el servidor
+	npm install --save-dev nodemon
+
+# Configuración de TypeScript tsconfig.json:
+vim tsconfig.json
+-----------------------------------------------------------------------
+{
+    "compilerOptions": {
+        "target": "ES6",
+        "module": "commonjs",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true
+    },
+    "include": [
+        "app/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
+-----------------------------------------------------------------------
+
+# Creo archivo nodemon.json:
+vim nodemon.json
+-----------------------------------------------------------------------
+{
+  "watch": ["app"],
+  "ext": "ts",
+  "exec": "ts-node app/index.ts"
+}
+-----------------------------------------------------------------------
+	
+# Modifico archivo package.json:
+vim package.json
+-----------------------------------------------------------------------
+"scripts": {
+  "start": "nodemon",
+...
+}
+-----------------------------------------------------------------------
+
+# Creo un archivo /app/index.ts:
+mkdir app
+npm install express mongoose
+cd app
+vim index.ts
+-----------------------------------------------------------------------
+import express, { Request, Response } from 'express';
+
+const app = express();
+const port = 3000;
+
+app.get('/', (req: Request, res: Response) => {
+  res.send('Hello Ilerna, I can write TypeScript with Express.js!');
+});
+
+app.listen(port, () => {
+  console.log(`🚀 Server is running at http://localhost:${port}`);
+});
+-----------------------------------------------------------------------
+
+# ⚠️ esto es opcional : si quiero cambiar el host para entrar desde otra url a la web (por defecto será vm-nginx)
+# modifico el host para que la web se vea vía web simulando al dominio : pruebas.local
+# hostnamectl set-hostname <HOST_SERVIDOR>
+# vim /etc/hosts
+# ----------------------------------------------------------------------------
+# 127.0.0.1   localhost
+# <IP_DEL_SERVIDOR_PRIVADA>   <HOST_SERVIDOR>
+	
+# # The following lines are desirable for IPv6 capable hosts
+# ::1     localhost ip6-localhost ip6-loopback
+# ff02::1 ip6-allnodes
+# ff02::2 ip6-allrouters
+----------------------------------------------------------------------------
+
+# compruebo el host 
+hostname
+
+# Ejecuto la aplicación
+cd /var/www/express
+npm run start
+
+# pruebo a entrar en http://<IP_DEL_SERVIDOR>:3000
+http://vm-nginx:3000
+# si consigo entrar vuelco el proyecto de express.js que quiero que muestre
+
+## Configurar Nginx:
+# configuro un proxy inverso
+# Un proxy inverso es un servidor que recibe las solicitudes de los clientes y las redirige a uno o varios servidores internos, ocultando su identidad.
+systemctl restart nginx
+vim /etc/nginx/sites-available/express
+----------------------------------------------------
+server {
+    listen 80;
+    server_name <HOST_SERVIDOR>:3000;			# dominio o IP
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+----------------------------------------------------
+
+# creo enlace simbolico
+sudo ln -s /etc/nginx/sites-available/express /etc/nginx/sites-enabled/
+
+# reinicio nginx
+sudo systemctl restart nginx
+
+# Una vez llegados a este punto y visto que funciona Nginx con Express.js && Typescript, migro el proyecto que he desarrollado, en este mismo GitHub al servidor de desarrollo.
+# A partir de aora voy a crear un proyecto con Nginx con Express.js y con Typescript en una configuración cluster.
+
+#  ⚠️ es buena práctica, si no voy a utilizar ipv6, comentar la siguiente línea o a la larga me creará un error
+# error : "nginx: [emerg] socket() [::]:80 failed (97: Address family not supported by pro..."
+vim /etc/nginx/sites-enabled/default
+----------------------------------------------------
+...
+# listen [::]:80;
+...
+----------------------------------------------------
+systemctl restart nginx
+systemctl status nginx
+
+#=========================================================================================================================
+[🚀INSTALACIÓN DE PM2]:
+# PM2 no solo es útil para gestionar procesos en producción, sino que también es muy eficaz para gestionar el ciclo de vida de la aplicación, incluyendo el despliegue (deploy), la gestión de procesos, y la configuración de producción.
+
+## process manager:
+# Para mantenerlo activo después de cerrar la terminal
+npm install -g pm2
+
+cd /var/www/express
+# Voy a utilizar una forma más simple de crear el pm2 ya que luego creo el archivo ecosystem.config.js para sustituir esta configuración, 
+# la primera vez lo probe así por eso lo dejo comentado, por lo que este apartado me lo salto de configurar...
+	# pm2 start npm --name "express" -- run start --watch 		# --watch sirve para reiniciar la aplicación si hay cambios y que no se caiga la aplicación
+	# pm2 startup 							# Configura PM2 para que inicie tu aplicación automáticamente en caso de reinicio del servidor
+	# pm2 save							# guarda la configuración
+	# otros comandos pm2	
+	# pm2 delete express
+	# pm2 restart express
+
+# creo un archivo de configuración para pm2
+cd /var/www/express
+vim ecosystem.config.js
+----------------------------------------------------
+module.exports = {
+	apps: [
+	  {
+	    name: 'express',                                  // Nombre del proceso
+	    script: 'node_modules/ts-node/dist/bin.js',       // Archivo principal del servidor, utilizo ts-node para ejecutar el archivo TypeScript.
+	    args: 'app/index.ts',                             // Ejecuto el archivo Typescript
+	    instances: 1,                                     // Número de instancias para escalar la aplicación (clusters)
+	    autorestart: true,                                // Reiniciar automáticamente si el proceso falla
+	    max_restarts: 5,                                  // Limitar a 5 reinicios seguidos, para no saturar la aplicación en caso de fallo
+	    restart_delay: 2000,                              // Esperar 1 segundo entre reinicios
+	    watch: true,                                      // Observar cambios en el directorio
+	    ignore_watch: ["node_modules"],                   // ignoro archivos que no quiero que evalue si cambian
+	    env: {
+	      NODE_ENV: 'production'                          // Puedo forzar una variable de entorno dentro del archivo .env para afirmar que cuando se ejecute pm2 sea en producción
+	    }
+	  }
+	],
+	
+	// # Puedo gestionar un repositorio git desde aquí
+	//deploy: {
+	//  production: {
+	//    user: 'deploy_user',
+	//    host: 'your.server.com',
+	//    ref: 'origin/master',
+	//    repo: 'git@github.com:yourrepo.git',
+	//    path: '/var/www/yourapp',
+	//    'post-deploy': 'npm install && pm2 reload ecosystem.config.js --env production',
+	//  }
+	//}
+};
+----------------------------------------------------
+
+# reinicio mi app con PM2
+pm2 start ecosystem.config.js
+
+# Para comprobar el listado de pm2
+pm2 ps
+
+# comprobar los fallos del proyecto express
+pm2 logs express
+
+#=========================================================================================================================
+[🚀INSTALACIÓN DE MONGODB]:
+# importar la clave pública de MongoDB
+sudo apt-get install gnupg curl
+curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | \
+   sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg \
+   --dearmor
+
+# añadir el repositorio de MongoDB
+echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+
+# actualizo
+sudo apt update
+
+# instalar mongodb
+sudo apt install -y mongodb-org
+
+# iniciar servicio mongodb
+sudo systemctl start mongod
+sudo systemctl enable mongod
+sudo systemctl status mongod
+
+# acceder al shell mongo
+mongosh
+
+# crear una base de datos
+use usuarios
+
+# crear un usuario con permisos
+# db.createUser({
+#   user: "nombre_usuario",
+#   pwd: "contraseña_segura",
+# // roles según sea necesario...
+#   roles: [
+#     { role: "read", db: "nombre_de_base_de_datos" },           // Solo lectura
+#     { role: "readWrite", db: "nombre_de_base_de_datos" },      // Lectura y escritura
+#     { role: "dbAdmin", db: "nombre_de_base_de_datos" },        // Administración de la base de datos
+#     { role: "dbOwner", db: "nombre_de_base_de_datos" },        // Propietario de la base de datos
+#     { role: "clusterAdmin", db: "admin" },                      // Administración de clústeres (para MongoDB en clúster)
+#     { role: "backup", db: "admin" },                            // Permisos de respaldo
+#     { role: "restore", db: "admin" },                           // Permisos de restauración
+#     { role: "userAdmin", db: "nombre_de_base_de_datos" },       // Administración de usuarios en la base de datos
+#     { role: "userAdminAnyDatabase", db: "admin" },              // Administración de usuarios en cualquier base de datos
+#     { role: "root", db: "admin" },                              // Acceso completo (superusuario)
+#     { role: "readAnyDatabase", db: "admin" },                   // Lectura en cualquier base de datos
+#     { role: "readWriteAnyDatabase", db: "admin" }               // Lectura y escritura en cualquier base de datos
+#   ]
+# })
+
+# sugerencia:
+# Usa el rol readWrite para usuarios que solo necesiten leer y escribir en una base de datos.
+# Usa el rol dbAdmin para administradores de base de datos.
+
+db.createUser({
+  user: "user",
+  pwd: "Bijowodo*402",
+ roles: [
+    { role: "readWrite", db: "usuarios" }
+  ]
+})
+
+db.createUser({
+  user: "admin",
+  pwd: "Riujtrgdo*789",
+ roles: [
+    { role: "dbAdmin", db: "usuarios" }
+  ]
+})
+
+# comprobar los usuarios
+show users
+exit
+
+# autenticación y conexión con el usuario
+# Configurar el cortafuegos
+vim /etc/mongod.conf
+----------------------------------------------------
+security:
+  authorization: "enabled" 		        # autenticación con usuario existente
+...
+net:
+  bindIp: 127.0.0.1,192.168.1.1/24  	# Permitir solo IPs locales y 192.168.1.100
+...
+net:
+  http:
+    enabled: false  			            # Deshabilitar la interfaz HTTP
+----------------------------------------------------
+
+# reinicio servicio
+systemctl restart mongod
+
+# conectarse con el usuario creado
+#mongo -u nombre_usuario -p contraseña_segura --authenticationDatabase nombre_de_base_de_datos
+mongosh -u user -p Bijowodo*402 --authenticationDatabase usuarios
+
+
+## otras configuraciones de seguridad
+# encriptación en reposo: MongoDB Enterprise ofrece encriptación de datos en reposo, lo cual cifra los datos almacenados en disco. Si usas la versión comunitaria, puedes usar una solución externa de cifrado.
+# encriptación en tránsito: Configura TLS/SSL para cifrar el tráfico de la base de datos entre los clientes y el servidor MongoDB.
+vim /etc/mongod.conf
+----------------------------------------------------
+net:
+  ssl:
+    mode: requireSSL  # Forzar la encriptación de datos en tránsito
+    PEMKeyFile: /ruta/al/certificado.pem
+...
+
+# monitorización del Acceso
+systemLog:
+  destination: file
+  path: /var/log/mongodb/mongod.log
+  logAppend: true
+----------------------------------------------------
+
+# con los datos de la base de datos mongodb modifico el archivo 
+vim /var/www/express/app/index.ts
+----------------------------------------------------
+...
+const mongoURI = 'mongodb://localhost:27017/nombre_de_base_de_datos'; 
+...
+----------------------------------------------------
+
+# reinicio pm2
+cd /var/www/express
+pm2 start ecosystem.config.js
+
+# Finalmente puedo acceder desde un Windows al CLI (Command Line Interface) descargando MongoDB Compass
+https://www.mongodb.com/try/download/compass
+
+#=========================================================================================================================
+[🚀COMPROBAR LA CONEXIÓN CON MONGOO]:
+# vuelvo a editar el archivo de configuración de express con una conexión simple de mongo
+cd /var/www/express/app
+vim index.ts
+-----------------------------------------------------------------------
+import express, { Request, Response } from 'express';
+import mongoose from 'mongoose';
+
+const app = express();
+const port = 3000;
+
+const mongoURI = 'mongodb://localhost:27017/tu_base_de_datos'; 
+mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => {
+    console.log('👨‍💻 Connect to MongoDB');
+  })
+  .catch(err => {
+    console.error('Error:', err);
+  });
+
+app.get('/', (req: Request, res: Response) => {
+  res.send('Hello Ilerna, i can write TypeScript with Express.js!');
+});
+
+app.listen(port, () => {
+  console.log(`Server is running at http://localhost:${port}`);
+});
+-----------------------------------------------------------------------
+
+#=========================================================================================================================
+[🚀INSTALAR CERTIFICADO]:
+# certificado con dominio local
+⚠️ Para un dominio local como el mio necesito un certificado autofirmado
+
+# creo la carpeta
+mkdir /var/www/express/letsencrypt
+cd /var/www/express/letsencrypt
+
+## .key :: (clave privada)
+# Genero una clave privada
+openssl genpkey -algorithm RSA -out pruebas.local.key -aes256
+
+## .csr :: (Solicitud de firma de certificado)
+# Genero un archivo de solicitud de firma de certificado (CSR)
+# En un entorno real, una vez generado mi CSR desde mi servidor lo tengo que enviar a la empresa de venta de dominio (como Namecheap) o Autoridad Certificadora (CA) y ellos me lo validan y me devuelven un .crt
+openssl req -new -key pruebas.local.key -out pruebas.local.csr
+
+## .crt o .pfx o .pem :: (clave pública)
+# Genero el certificado autofirmado con caducidad de 1 año (solo lo genero en el caso que sean pruebas, los "certificados autofirmados" se hacen cuando el dominio no es real)
+# En un entorno real, debería enviar la CSR a una Autoridad de Certificación (CA) y utilizar el certificado que me proporcionarían.
+openssl x509 -req -days 365 -in pruebas.local.csr -signkey pruebas.local.key -out pruebas.local.crt
+
+# En el caso de caducarse, en un entorno real, tengo que generar otro CSR y repitiendo el proceso con la Autoridad Certificadora (CA).
+
+# edito la configuración de mi sitio Nginx
+cd /etc/nginx/sites-available
+vim express
+----------------------------------------------------
+# https
+server {
+    listen 443 ssl;
+    server_name pruebas.local;
+
+    ssl_certificate /var/www/express/letsencrypt/pruebas.local.crt;
+    ssl_certificate_key /var/www/express/letsencrypt/pruebas.local.key.nopass;
+
+    location / {
+        proxy_pass http://app_cluster;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+# http
+server {
+    listen 80;
+    server_name pruebas.local;
+    return 301 https://$host$request_uri;
+}
+----------------------------------------------------
+
+# agrego la configuración del cluster en el archivo principal de nginx - al final del bloque de configuración de http 
+vim /etc/nginx/nginx.conf
+----------------------------------------------------
+...
+upstream app_cluster {
+    server 127.0.0.1:3000;
+    # server 127.0.0.1:3001;
+    # server 127.0.0.1:3002;
+}
+
+include /etc/nginx/conf.d/*.conf;
+include /etc/nginx/sites-enabled/*;
+...
+----------------------------------------------------
+
+# verifico la configuración
+sudo nginx -t
+
+# reinicio el servicio de nginx
+sudo systemctl restart nginx
+
+# para comprobar el certificado
+openssl s_client -connect pruebas.local:443
+
+
+-
+⚠️ si me da un error en el certificado privado pruebo a quitarle la contraseña
+⚠️ si no me a dado ningún error o quiero dejar la encriptación ya he finalizado 100% la configuración
+# creo una nueva clave
+sudo openssl rsa -in /var/www/express/letsencrypt/pruebas.local.key -out /var/www/express/letsencrypt/pruebas.local.key.nopass
+
+# modifico mi archivo y agrego la nueva clave
+sudo vim /etc/nginx/sites-available/express
+----------------------------------------------------
+...
+	ssl_certificate_key /var/www/express/letsencrypt/pruebas.local.key.nopass;
+	# ssl_certificate_key /var/www/express/letsencrypt/pruebas.local.key;
+...
+----------------------------------------------------
+
+# comprueba el archivo de certificado 
+openssl x509 -in /var/www/express/letsencrypt/pruebas.local.crt -text -noout
+
+#=========================================================================================================================
+[🚀MATO PROCESOS SI HAY FALLO ]:
+# compruebo los procesos en mi puerto
+lsof -i :3000
+
+# mato el proceso
+sudo kill -9 <PID>
+
+#=========================================================================================================================
+[🚀CONFIGURACIÓN HONEYPOT]::
+# configuro nuevas rutas que sean trampas
+# 🐝 honeypot rutas 
+vim /var/www/express/app/index.ts
+-----------------------------------------------------------------------
+import express, { Request, Response, NextFunction } from 'express';ts    c /var/www/express/app/index.ts                                                                                                                                     import fs from 'fs';
+import path from 'path';
+import mongoose from 'mongoose';
+
+const app = express();
+const port = 3000;
+const mongoURI = 'mongodb://localhost:27017/tu_base_de_datos';
+
+// ruta del log
+const logPath = '/ce-500/log/express_access.log';
+
+// registro de accesos
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const timestamp = new Date().toISOString();
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const userAgent = req.headers['user-agent'] || 'N/A';
+  const log = `[${timestamp}] ${ip} → ${req.method} ${req.url} | UA: ${userAgent}\n`;
+
+  // directorio existente
+  const logDir = path.dirname(logPath);
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+  }
+
+  fs.appendFileSync(logPath, log);
+  console.log(log.trim());
+  next();
+});
+
+// rutas
+app.get('/', (req: Request, res: Response) => {
+  res.send('Hello Ilerna, I can write TypeScript with Express.js!');
+});
+
+// simulando una web ghost (blogger)
+app.get('/ghost', (req: Request, res: Response) => {
+  res.send(`
+    <html>
+      <head>
+        <title>Ghost</title>
+      </head>
+      <body>
+        <h1>Ghost</h1>
+        <form action="/login" method="post">
+          <label>Email:</label>
+          <input type="email" name="email" required>
+          <br>
+          <label>Password:</label>
+          <input type="password" name="password" required>
+          <br>
+          <button type="signin">Sign in</button>
+        </form>
+      </body>
+    </html>
+  `);
+});
+
+app.post('/login', (req, res) => {
+  const { email, password } = req.body;
+  res.send('Inicio de sesión exitoso!');
+});
+
+app.get('/.git', (req: Request, res: Response) => {
+  res.send('User without permissions');
+});
+
+app.get('/datos-sensibles', (req: Request, res: Response) => {
+  res.send('User without permissions');
+});
+
+// latencia simulada
+app.get('/config.bak', async (req, res) => {
+  await new Promise(resolve => setTimeout(resolve, 30000));
+  res.status(200).send('Configuration backup file');
+});
+
+// falsa API
+app.get('/api/v1/internal/debug', (req, res) => {
+  res.json({ debug: true, verbose: true, token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYWRtaW4iLCJyb2xlIjoiYXBpX2tleSIsImlhdCI6MTY5OTk5OTk5OSwiZXhwIjoxNzAwMDAzNTk5fQ.kG5jVslP1ZwqT-7IFBzvMZ8F9KHtrQzYxh2v_m6k4v4' });
+});
+
+// imprimo por consola la conexión
+mongoose.connect(mongoURI)
+  .then(() => {
+    console.log('👨‍💻 Connect to MongoDB');
+  })
+  .catch(err => {
+    console.error('Error:', err);
+  });
+
+app.listen(port, () => {
+  console.log(`🚀 Server is running at http://localhost:${port}`);
+});
+-----------------------------------------------------------------------
+
+
+# 🐝 honeypot para decoys :: scanners (falsificar archivos de configuración)
+# agrego archivos falsos de posibles ataques, les asocio un tamaño virtual y monitorizo su interactuación 
+echo "Backup falso" > /var/www/express/app/db_backup.bson && truncate -s 1455M /var/www/express/app/db_backup.bson
+echo "Log falso" > /var/www/express/app/access.log && truncate -s 321M /var/www/express/app/access.log
+echo "Mongodb falso" > /var/www/express/mongodb. && truncate -s 987M /var/www/express/mongodb.
+
+# instalo inotify para escuchar en vivo si el archivo se abierto
+sudo apt install inotify-tools
+
+# creo script para evaluar con inotify
+mkdir /ce-500/log/
+touch /ce-500/log/honypot-monitor.txt
+vim honypot-monitor.sh
+-----------------------------------------------------------------------
+#!/bin/bash
+
+# Lista de archivos a monitorear (separados por espacios)
+archivos_a_monitorear=(
+  "/var/www/express/app/db_backup.bson"
+  "/var/www/express/app/access.log"
+  "/var/www/express/mongodb."
+)
+
+log="/ce-500/log/honypot-monitor.txt"
+
+# Verifica que todos los archivos existan
+for archivo in "${archivos_a_monitorear[@]}"; do
+  if [ ! -f "$archivo" ]; then
+    echo "❌ El archivo no existe: $archivo"
+    exit 1
+  fi
+done
+
+# Ejecuta inotifywait sobre todos los archivos
+inotifywait -m -e open "${archivos_a_monitorear[@]}" | while read path action file; do
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - Se abrió: $path$file" >> "$log"
+done
+-----------------------------------------------------------------------
+chmod +x honypot-monitor.sh
+
+# para que no se vea como un systemctl y dejarlo ejecutado en segundo plano 
+# lo malo de este método es que cada vez que se reinicia el servidor hay que pasar este comando
+sudo /ce-500/honypot-monitor.sh &
+
+# para comprobar que se esta ejecutando
+ps aux | grep monitor.sh
+
+
+# 🐝 honeypot para Mongodb
+# voy a monitorizar si alguien se loguea en la base de datos o realiza operaciones como find, save, update
+# agrego las siguientes lineas al archivo de configuracion
+vim /etc/mongod.conf
+-----------------------------------------------------------------------
+...
+systemLog:
+  destination: file
+  path: /ce-500/log/mongod.log
+  logAppend: true
+  verbosity: 1 					# Nivel 1 para registrar conexiones y operaciones básicas
+
+security:
+  authorization: enabled  			# Opcional, pero recomendable para monitoreo por usuario
+
+operationProfiling:
+  mode: all
+  slowOpThresholdMs: 1  			# Considera como "lenta" cualquier operación que dure más de 1 ms
+...
+-----------------------------------------------------------------------
+
+# reinicio los seervicios
+sudo systemctl restart mongod
+
+
+#=========================================================================================================================
+[🚀MODIFICO MAC]::
+# modifico MAC para simular una MAC de interface iDRAC (DELL), como si fuese un servidor rack DELL
+
+ip link set dev eth0 down
+# para asignar una MAC creible : https://standards-oui.ieee.org
+ip link set dev eth0 address F8:BC:12:7E:4A:D9
+ip link set dev eth0 up
+
+# comprobar el cliente de la MAC
+https://macaddresslookup.io/es?search=00:14:22:1A:2B:3C
+
+# comprobar los cambios
+ip a
+
+# modifico el archivo de red
+vim /etc/network/interfaces
+-----------------------------------------------------------------------
+...
+iface eth0 inet dhcp
+hwaddress ether F8:BC:12:7E:4A:D9
+...
+-----------------------------------------------------------------------
+
+# creo un servicio para que no deje de ser permanente la MAC temporal (aunque reinicie)
+vim /etc/systemd/system/fix-mac.service
+-----------------------------------------------------------------------
+[Unit]
+Description=Set static MAC address for eth0
+After=network-pre.target
+Before=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/ip link set dev eth0 address f8:bc:12:7e:4a:d9
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+-----------------------------------------------------------------------
+
+# activo el sericio
+sudo systemctl enable fix-mac.service
+sudo systemctl start fix-mac.service
+sudo systemctl status fix-mac.service
+
+# reinicio
+sudo reboot
+
+## 🕷️ He probado la funcionalidad real del cambio de MAC y aunque dentro de la máquina muestre dos MAC (una que es la real, la deja en segundo plano de manera permanente), cuando sale a la red lo hace con la nueva MAC, es por que eso que aunque esnifen mi red van a ver mi MAC DELL falsa.
