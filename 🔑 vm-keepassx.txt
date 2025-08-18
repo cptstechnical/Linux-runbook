@@ -1,0 +1,111 @@
+# 🧠 vm-keepassx → Gestor contraseñas
+# 🧠 Keepassxc se utiliza para gestionar contraseñas y datos sensibles de forma segura, incluyendo 2FA.
+# 🐧 Lo voy a utilizar para gestión de contraseñas, como alternativa de control a gestores de contraseñas online.
+
+#=========================================================================================================================
+[🔑 ce-500]::
+# Documentación oficial               : https://keepassxc.org/docs/KeePassXC_UserGuide#_openssh_agent_on_linux
+
+#=========================================================================================================================
+[🔑 INSTALACIONES]::
+# instalaciones 
+apt update
+apt upgrade -y
+
+## ssh
+## desde la consola del contenedor a través de proxmox
+# Amplio tiempo de ssh y deshabilitar la suspensión
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+
+# Realizo unos cambios en el archivo de configuración
+nano /etc/ssh/sshd_config
+----------------------------------------------------------------------------
+    Port 22
+    PasswordAuthentication yes
+    PermitRootLogin yes
+----------------------------------------------------------------------------
+
+# Inicializo el servicio y lo habilito para inicio de la sesión
+systemctl start sshd
+systemctl enable sshd
+systemctl status sshd
+
+# reinicio
+reboot now
+
+# creo una carpeta en el contenedor e instalo el script
+mkdir /ce-500 && cd /ce-500
+apt install vim -y
+vim script-00.sh
+# i - (shift + botón derecho):
+--------------------------------------------------------------------------------------
+    # código de /SCRIPTS/script-00.sh de este github
+--------------------------------------------------------------------------------------
+
+# doy permisos y hago la instalación
+chmod +x script-00.sh
+./script-00.sh
+source ~/.bashrc
+
+#=========================================================================================================================
+[🔑 INSTALACIÓN]::
+# creo una máquina que sirva de servidor independiente desde el que puedo compartir cada base de datos de distintas maneras 
+# las que aconsejo son las siguientes::
+# 💃 dentro de un servidor samba
+# 🐱 con un repositorio git minimalista como he hecho en vm-nginx 
+# 🤖 a través de un script en PowerShell
+
+# instalo keepassxc
+sudo apt install keepassxc
+
+mkdir /KIRIBAKO/keepassxc && cd /KIRIBAKO/keepassxc 
+
+# creo la base de datos por usuario y le agrego la contraseña
+keepassxc-cli db-create usuario-db.kdbx --set-password
+> **********
+
+# compruebo la base de datos
+keepassxc-cli open usuario-db.kdbx
+> **********
+
+# útiles
+usuario-db.kdbx> add prueba
+usuario-db.kdbx> show prueba
+usuario-db.kdbx> search prueba
+
+quit
+
+#=========================================================================================================================
+[🔑 CONFIGURACIÓN SCRIPT POWERSHELL]::
+
+# creo un usuario solo con privilegios de keepassxc
+sudo adduser keepassxc
+sudo mkdir /KIRIBAKO/keepassxc
+sudo chown keepassxc:keepassxc /KIRIBAKO/keepassxc
+# bloqueo que no pueda lanzar comandos
+sudo usermod -s /usr/sbin/nologin keepassxc
+
+# muevo la base de datos y le doy permisos
+sudo chown keepassxc:keepassxc /KIRIBAKO/keepassxc/usuario-1/usuario-db.kdbx
+
+# desde el pc Windows del usuario con el que modifico las password por
+copiardb.bat
+--------------------------------------------------------------------------------------
+@echo off
+set "ORIGEN=C:\carpeta\usuario-db.kdbx"
+set "DESTINO=X:\destino"
+
+copy /Y "%ORIGEN%" "%DESTINO%"
+--------------------------------------------------------------------------------------
+
+# guardo el script en la misma carpeta que la base de datos en el PC Windows y pulso doble click cada vez que quiero actualizar la copia al servidor
+# es una opción de gestionar las contraseñas segura, simple y sin mantenimiento, es una forma fácil de gestionar todas las cuentas de usuarios para volcar una recuperación de datos o crear una copia de seguridad.
+
+#=========================================================================================================================
+[🔑 CONFIGURACIÓN PROGRAMA]::
+# Como en keepass copiar el dato al hacer doble clic
+Ajustes > Gestión de apunte: Copiar datos al hacer doble clic en un campo de la vista de entrada
+
+# agregar un 2FA
+- crear la cuenta cliente normal con contraseña etc > guardar
+- botón derecho > TOTP > Confgiruar TOTP > (si no hay más datos, agrego el TOTP como me lo dá la aplicación cliente) 
