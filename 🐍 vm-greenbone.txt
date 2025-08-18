@@ -90,15 +90,15 @@ lscpu | grep "^CPU(s)"
 	ospd-openvas:		        	Motor de escaneo con todas las funciones que ejecuta un flujo de pruebas de vulnerabilidad (VT) continuamente actualizado y ampliado
 	openvasd:		            	Utiliza para detectar productos vulnerables, actualmente solo notus está integrado en gvmd
 	greenbone-feed-sync:	  		script basado en Python para descargar todos los datos de la fuente de la comunidad Greenbone a su máquina local
-	gvm-tools:		          	Colección de herramientas que ayudan a controlar instalaciones 
+	gvm-tools:		          		Colección de herramientas que ayudan a controlar instalaciones 
 	servidor Redis:		      		Utilizado por el escáner (openvas-scanner y ospd-openvas) para manejar la información de VT 
 	Estándares relacionados:
 		[NVT]:		            	Es el conjunto de pruebas de vulnerabilidades de la comunidad Greenbone
 		[CERT]:	 	            	Incluye avisos de seguridad de organizaciones como CERT-Bund o DFN-CERT
 		[GVMD_DATA]: 	        	Contiene configuraciones necesarias para que OpenVAS funcione correctamente, como Policies, Port Lists, Report Formats, Scan Configs.
 		[SCAP]:	Están dividido en:
-				+ [[CVEs]]:     (Common Vulnerabilities and Exposures): Base de datos de vulnerabilidades conocidas.
-				+ [[CPEs]]:     (Common Platform Enumeration): Identificadores únicos para sistemas operativos y software.
+				+ [[CVEs]]:     	(Common Vulnerabilities and Exposures): Base de datos de vulnerabilidades conocidas.
+				+ [[CPEs]]:     	(Common Platform Enumeration): Identificadores únicos para sistemas operativos y software.
 
 ##.🧑‍🎓 Índice de la instalación:
 	01.📌 Actualizar el sistema
@@ -861,8 +861,8 @@ Administration > Feed Status
 
 	# Error:
 	+-----------------------------------------------------------------------------------------------------------------------------------------------+
-	|	Feed is currently syncing.														|
-	|	Please wait while the feed is syncing. Scans are not available during this time. For more information, visit the Documentation.		|
+	|	Feed is currently syncing.																													|
+	|	Please wait while the feed is syncing. Scans are not available during this time. For more information, visit the Documentation.				|
 	+-----------------------------------------------------------------------------------------------------------------------------------------------+
 	
 # La web es reactiva y el mensaje de error tiene un timeout por lo que no vuelve a aparecer pero eso no significa que haya terminado de volcar los datos...
@@ -943,11 +943,11 @@ sudo systemctl stop gsad
 sudo systemctl stop openvasd
 
 	+-------------------------------------------------------+
-	|	sudo -u gvm greenbone-feed-sync --type all	|
-	|	# sudo -u gvm greenbone-nvt-sync		|
-	|	# sudo -u gvm greenbone-scapdata-sync		|
-	|	# sudo -u gvm greenbone-certdata-sync		|
-	|	# sudo -u gvm greenbone-feed-sync		|
+	|	sudo -u gvm greenbone-feed-sync --type all			|
+	|	# sudo -u gvm greenbone-nvt-sync					|
+	|	# sudo -u gvm greenbone-scapdata-sync				|
+	|	# sudo -u gvm greenbone-certdata-sync				|
+	|	# sudo -u gvm greenbone-feed-sync					|
 	+-------------------------------------------------------+
 
 # 🔴 Si se borran los archivos .lock con feed-sync se vuelven a crear 
