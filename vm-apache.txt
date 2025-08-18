@@ -1,0 +1,598 @@
+# 🧠 Apache es un servidor web de código abierto y altamente configurable, usado para alojar aplicaciones y sitios web.
+# 🐧 Esta máquina la voy a utilizar como honeypot y me va a registrar rutas de archivos reales en php y monitorización instantanea de acceso a mysql (sin paquetes externos).
+#=========================================================================================================================
+[🪶WHITE WHALE]::
+# documentación no-oficial         		    : https://es.linux-console.net/?p=29687
+# documentación no-oficial         		    : https://www.php.net/manual/es/install.unix.debian.php
+# Documentación certificado 			        : https://medium.com/@ali_97803/deploy-de-una-app-de-express-js-con-github-actions-usando-nginx-en-modo-https-855126f93164#82a4
+# Documentación oficial de SQL/Debian 		: https://wiki.debian.org/MySQL
+# Documentación oficial de mariaDB 		    : https://mariadb.com/kb/en/documentation/
+# Documentación oficial de MySQL 		      : https://dev.mysql.com/doc/
+# Documentación no-oficial certificados		: https://rlodeiro.info/blog/certificado-autofirmado/
+# Documentación oficial de Lets Encrypt		: https://letsencrypt.org/
+# Documentación OpenSSL				            : https://docs.openssl.org/3.0/man7/migration_guide/
+
+#=========================================================================================================================
+[🪶INSTALACIONES]::
+# instalaciones 
+apt update
+apt upgrade -y
+
+## ssh
+## desde la consola del contenedor a través de proxmox
+# Amplio tiempo de ssh y deshabilitar la suspensión
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+
+# Realizo unos cambios en el archivo de configuración
+nano /etc/ssh/sshd_config
+----------------------------------------------------------------------------
+    Port 22
+    PasswordAuthentication yes
+    PermitRootLogin yes
+----------------------------------------------------------------------------
+
+# Inicializo el servicio y lo habilito para inicio de la sesión
+systemctl start sshd
+systemctl enable sshd
+systemctl status sshd
+
+# reinicio
+reboot now
+
+# creo una carpeta en el contenedor e instalo el script
+mkdir /ce-500 && cd /ce-500
+apt install vim -y
+vim script-00.sh
+# i - (shift + botón derecho):
+--------------------------------------------------------------------------------------
+    # código de /SCRIPTS/script-00.sh de este github
+--------------------------------------------------------------------------------------
+
+# doy permisos y hago la instalación
+chmod +x script-00.sh
+./script-00.sh
+source ~/.bashrc
+
+#=========================================================================================================================
+[🪶INSTALACIÓN DE XAMPP]:
+# instalo dependencias para xampp
+apt-get install apache2 libapache2-mod-php php php-mysql php-gmp php-intl php-gd php-snmp php-ldap php-mbstring php-simplexml php-xml php-zip mariadb-server mariadb-client
+
+# configuración principal de mariadb
+vim /etc/mysql/mariadb.conf.d/50-server.cnf
+--------------------------------------------------------------------------------------
+user                    = mysql
+pid-file                = /run/mysqld/mysqld.pid
+basedir                 = /usr
+datadir                 = /var/lib/mysql
+tmpdir                  = /tmp
+lc-messages-dir         = /usr/share/mysql
+lc-messages             = en_US
+skip-external-locking
+
+# dejar comentado el bind si quiero consultas fuera de localhost
+# bind-address            = 127.0.0.1
+
+# tenemos que agregar el mismo character que tiene nuestra db
+collation-server=utf8mb4_spanish_ci
+--------------------------------------------------------------------------------------
+
+# Habilitamos https
+cd ~ 
+a2enmod ssl
+a2ensite default-ssl
+a2enmod cgi cgid rewrite
+a2enmod headers
+systemctl restart apache2
+
+# Configuracion minima para mysql (buenas prácticas de mysql)
+mysql_secure_installation
+
+current password: *********
+all yes
+
+# Reiniciamos apache
+systemctl reload apache2
+systemctl restart mysql
+
+# inicia automáticamente cada vez que el sistema arranque
+systemctl enable apache2
+systemctl enable mysql
+
+# compruebo los servicios
+systemctl status apache2
+systemctl status mysql
+
+#=========================================================================================================================
+[🪶INSTALACIÓN DE MARIADB]:
+# Como quiero que la base de datos permanezca en mi servidor y no en uno independiente voy a instalar mysql
+sudo systemctl status mariadb
+sudo systemctl start mariadb
+sudo systemctl enable mariadb
+
+# entro a la base de datos
+sudo mysql -u root -p
+
+# creo la base de datos mysql_db con usuario express y privilegios root
+CREATE DATABASE mysql_db;
+# para crear un usuario con acceso localhost 
+CREATE USER 'admin'@'localhost' IDENTIFIED BY 'Tutipoda&452';
+GRANT ALL PRIVILEGES ON mysql_db.* TO 'admin'@'localhost';
+FLUSH PRIVILEGES;
+
+## es buena práctica utilizar varios usuarios para dar privilegios solo 
+# este es el usuario con el que me voy a registrar desde .env de node para limitar 
+CREATE USER 'express'@'localhost' IDENTIFIED BY 'Wupotoge&888';
+GRANT SELECT, INSERT, UPDATE, DELETE ON mysql_db.* TO 'express'@'localhost';
+FLUSH PRIVILEGES;
+
+# este caso seria para crear un usuario fuera del servidor
+# CREATE USER 'root'@'%' IDENTIFIED BY 'toor';
+# GRANT ALL PRIVILEGES ON mysql_db.* TO 'express'@'%';
+# FLUSH PRIVILEGES;
+
+# entro a la base de datos
+USE mysql_db;
+
+# Creo la tabla necesaria para el proyecto
+CREATE TABLE usuarios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario VARCHAR(50) NOT NULL,
+    contraseña TEXT NOT NULL
+);
+
+# Agrego un valor
+INSERT INTO usuarios (id, usuario, contraseña) VALUES
+(1, 'isaac', 'aca217fb549886ea0c52a7e59563d9667fe1683622829f3e4699bbdd97074273638dd8a13c418f262a4652afa2f287dddc92fb90ae3d738e9b62f5568d33271d:d09b1a120e5950e0cd0cebac83a78715');
+
+# compruebo la tabla
+SELECT * FROM usuarios;
+exit;
+
+# compruebo el tipo de conexión onfigurar MySQL 
+vim /etc/mysql/mariadb.conf.d/50-server.cnf
+--------------------------------------------------------------------------------------
+	# para conexiones locales
+	> bind-address = 127.0.0.1 
+	# para aceptar conexiones remotas
+	# > bind-address = 0.0.0.0
+--------------------------------------------------------------------------------------
+
+# Reinicio MySQL
+sudo systemctl restart mariadb
+
+#=========================================================================================================================
+[🪶PHP]:
+# creo la carpeta
+cd /var/www
+mkdir php
+
+# creo un archivo php para comprobar la conexión con la base de datos
+cd php && vim index.php
+--------------------------------------------------------------------------------------
+	<?php
+	// conexión
+	$host = '127.0.0.1';
+	$db   = 'mysql_db';
+	$user = 'admin';
+	$pass = 'Tutipoda&452';
+	$charset = 'utf8mb4';
+	
+	// PDO y manejo de errores
+	$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+	$options = [
+	    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, 
+	    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,      
+	    PDO::ATTR_EMULATE_PREPARES   => false,
+	];
+	
+	try {
+	    // conexión a la base de datos
+	    $pdo = new PDO($dsn, $user, $pass, $options);
+	    echo "¡Conexión a la base de datos '$db' exitosa!<br><br>";
+	    
+	    // comprueba la tabla 'usuarios'
+	    $stmt = $pdo->query("SELECT * FROM usuarios");
+	    
+	    // respuesta
+	    $usuarios = $stmt->fetchAll();
+	    if($usuarios) {
+	        echo "<strong>Usuarios encontrados:</strong><br>";
+	        foreach ($usuarios as $usuario) {
+	            echo "ID: " . $usuario['id'] . " - Usuario: " . $usuario['usuario'] . " - Contraseña: " . $usuario['contraseña'] . "<br>";
+	        }
+	    } else {
+	        echo "La tabla 'usuarios' no tiene registros o no se encontró.";
+	    }
+	    
+	} catch (\PDOException $e) {
+	    // se muestra un mensaje en caso de error
+	    throw new \PDOException($e->getMessage(), (int)$e->getCode());
+	}
+	?>
+--------------------------------------------------------------------------------------
+
+# cambio la dirección de apache para la web en http
+vim /etc/apache2/sites-available/vim 000-default.conf
+--------------------------------------------------------------------------------------
+...
+DocumentRoot /var/www/php
+...
+--------------------------------------------------------------------------------------
+
+# cambio la dirección de apache para la web en https
+vim  /etc/apache2/sites-available/default-ssl.conf
+--------------------------------------------------------------------------------------
+...
+DocumentRoot /var/www/php
+...
+--------------------------------------------------------------------------------------
+
+#=========================================================================================================================
+[🪶INSTALAR CERTIFICADO]:
+# certificado con dominio local
+⚠️ Para un dominio local como el mio necesito un certificado autofirmado
+
+# creo la carpeta
+mkdir /var/www/php/letsencrypt
+cd /var/www/php/letsencrypt
+
+## .key :: (clave privada)
+# Genero una clave privada
+	openssl genpkey -algorithm RSA -out pruebas.local.key -aes256
+	> **********
+
+## .csr :: (Solicitud de firma de certificado)
+# Genero un archivo de solicitud de firma de certificado (CSR)
+# En un entorno real, una vez generado mi CSR desde mi servidor lo tengo que enviar a la empresa de venta de dominio (como Namecheap) o Autoridad Certificadora (CA) y ellos me lo validan y me devuelven un .crt
+	openssl req -new -key pruebas.local.key -out pruebas.local.csr
+	> **********
+
+## .crt o .pfx o .pem :: (clave pública)
+# Genero el certificado autofirmado con caducidad de 1 año (solo lo genero en el caso que sean pruebas, los "certificados autofirmados" se hacen cuando el dominio no es real)
+# En un entorno real, debería enviar la CSR a una Autoridad de Certificación (CA) y utilizar el certificado que me proporcionarían.
+	openssl x509 -req -days 365 -in pruebas.local.csr -signkey pruebas.local.key -out pruebas.local.crt
+	> **********
+
+# En el caso de caducarse, en un entorno real, tengo que generar otro CSR y repitiendo el proceso con la Autoridad Certificadora (CA).
+
+# modifico el archivo para https de apache
+vim  /etc/apache2/sites-available/default-ssl.conf
+--------------------------------------------------------------------------------------
+...
+DocumentRoot /var/www/php
+
+SSLEngine on
+SSLCertificateFile /var/www/php/letsencrypt/pruebas.local.crt
+SSLCertificateKeyFile /var/www/php/letsencrypt/pruebas.local.key
+...
+--------------------------------------------------------------------------------------
+
+# habilito ssl
+sudo a2enmod ssl
+
+# habilito un nuevo Virtual Host
+sudo a2ensite default-ssl.conf
+
+# reinicio los servicios
+sudo systemctl reload apache2
+sudo systemctl restart apache2
+
+#=========================================================================================================================
+[🪶INSTALACIÓN DESPLIEGUE GIT]::
+# creo la carpeta de repositorio git
+mkdir /etc/git
+
+# dentro de la ruta del repositorio del servidor tengo que agregar una carpeta /hooks con el archivo post-receive
+# /ruta/a/tu/repositorio.git/hooks
+mkdir /etc/git/hooks && cd /etc/git/hooks
+vim post-receive
+--------------------------------------------------------------------------------------
+#!/bin/bash
+
+REPO_DIR="/etc/git"
+DEPLOY_DIR="/var/www/php"
+# EMAIL="<CORREO_GMAIL>"
+
+# Cambiar al directorio del repositorio
+cd $REPO_DIR || exit
+
+# Actualizar el contenido en el directorio de despliegue
+GIT_WORK_TREE=$DEPLOY_DIR git checkout -f master
+
+# Enviar un correo electrónico
+# echo "Se ha realizado un push al repositorio y se ha actualizado el directorio de despliegue." | mail -s "Notificación de Push" $EMAIL
+--------------------------------------------------------------------------------------
+
+# # el archivo post-receive se va a activar cada vez que un usuario realice un push
+# va a es mandar directamente la rama master a producción para que los cambios sean inminentes
+
+#=========================================================================================================================
+[🪶HONEYPOT]::
+# 🔔 agrego trampas en el espacio web (por si intentan atacar por peticiones web)
+mkdir /ce-500/log
+touch /ce-500/log/honeypot_activity.log
+touch /ce-500/log/honeypot_login.log
+chmod 666 /ce-500/log/honeypot_login.log
+chmod 666 /ce-500/log/honeypot_activity.log
+
+# creo nuevas rutas conntrolados por logs
+cd /var/www/php
+
+## 🐝 honeypot rutas  
+# 🍯 honeypot
+vim index.php
+--------------------------------------------------------------------------------------
+<?php
+// honeypot
+$ip = $_SERVER['REMOTE_ADDR'];
+$uri = $_SERVER['REQUEST_URI'];
+$userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'N/A';
+$log = "[" . date("Y-m-d H:i:s") . "] IP: $ip | URI: $uri | Agente: $userAgent\n";
+
+// Guardamos el intento en un archivo de log
+file_put_contents("/ce-500/log/honeypot_activity.log", $log, FILE_APPEND);
+
+// Configuración de la conexión
+$host = '127.0.0.1'; // o localhost
+$db   = 'mysql_db';
+$user = 'admin'; // usuario con acceso a la base de datos
+$pass = 'Tutipoda&452';
+$charset = 'utf8mb4';
+
+// Configuración de PDO y manejo de errores
+$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+$options = [
+    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, // Muestra excepciones en errores
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,       // Obtención en forma de array asocia    tivo
+    PDO::ATTR_EMULATE_PREPARES   => false,
+];
+
+try {
+    // Creando la conexión a la base de datos
+    $pdo = new PDO($dsn, $user, $pass, $options);
+    echo "¡Conexión a la base de datos '$db' exitosa!<br><br>";
+
+    // Realizamos una consulta simple para comprobar la tabla 'usuarios'
+    $stmt = $pdo->query("SELECT * FROM usuarios");
+
+    // Mostramos los resultados
+    $usuarios = $stmt->fetchAll();
+    if($usuarios) {
+        echo "<strong>Usuarios encontrados:</strong><br>";
+        foreach ($usuarios as $usuario) {
+           echo "ID: " . $usuario['id'] . " - Usuario: " . $usuario['usuario'] . " - Contraseña:     " . $usuario['contraseña'] . "<br>";
+        }
+    } else {
+        echo "La tabla 'usuarios' no tiene registros o no se encontró.";
+    }
+
+} catch (\PDOException $e) {
+    // En caso de error, se muestra un mensaje y se detiene la ejecución
+    throw new \PDOException($e->getMessage(), (int)$e->getCode());
+}
+?>
+--------------------------------------------------------------------------------------
+
+# 🍯 honeypot
+vim admin.php
+--------------------------------------------------------------------------------------
+<?php
+// honeypot
+$ip = $_SERVER['REMOTE_ADDR'];
+$uri = $_SERVER['REQUEST_URI'];
+$userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'N/A';
+$log = "[" . date("Y-m-d H:i:s") . "] IP: $ip | URI: $uri | Agente: $userAgent\n";
+
+file_put_contents("/ce-500/log/honeypot_activity.log", $log, FILE_APPEND);
+
+// falso
+http_response_code(404);
+echo "404: Necesitas estar registrado";
+?>
+--------------------------------------------------------------------------------------
+
+# 🍯 honeypot
+vim 404.php
+--------------------------------------------------------------------------------------
+<?php
+// honeypot
+$ip = $_SERVER['REMOTE_ADDR'];
+$uri = $_SERVER['REQUEST_URI'];
+$userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'N/A';
+$log = "[" . date("Y-m-d H:i:s") . "] IP: $ip | URI: $uri | Agente: $userAgent\n";
+
+file_put_contents("/ce-500/log/honeypot_activity.log", $log, FILE_APPEND);
+
+// falso
+http_response_code(404);
+echo "404";
+?>
+--------------------------------------------------------------------------------------
+
+# 🍯 honeypot
+vim login.php
+--------------------------------------------------------------------------------------
+<?php
+// honeypot
+$ip = $_SERVER['REMOTE_ADDR'];
+$userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'N/A';
+$log = "[" . date("Y-m-d H:i:s") . "] IP: $ip | Agente: $userAgent\n";
+
+// archivo de log
+file_put_contents("/ce-500/log/honeypot_login.log", $log, FILE_APPEND);
+
+// simulo fallo de login
+$mensaje = "Usuario o contraseña incorrecta.";
+?>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <style>
+        body { font-family: Arial; background-color: #f2f2f2; text-align: center; margin-top: 100px; }
+        form { background: #fff; padding: 20px; display: inline-block; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        input { margin: 10px 0; padding: 10px; width: 100%; border: 1px solid #ccc; border-radius: 5px; }
+        .error { color: red; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <form method="POST" action="">
+        <h2>Iniciar sesión</h2>
+        <input type="text" name="usuario" placeholder="Usuario" required>
+        <input type="password" name="contrasena" placeholder="Contraseña" required>
+        <input type="submit" value="Entrar">
+        <?php if ($_SERVER['REQUEST_METHOD'] === 'POST') echo "<div class='error'>$mensaje</div>"; ?>
+    </form>
+
+</body>
+</html>
+--------------------------------------------------------------------------------------
+
+systemctl reload apache2
+
+# 🔔 hago lo mismo con .git, agrego un honeypot en el git anteriormente creado
+touch /ce-500/log/git-honeypot.log
+cd /etc/git/hooks
+
+# 🍯 honeypot
+vim post-receive
+--------------------------------------------------------------------------------------
+#!/bin/bash
+
+REPO_DIR="/etc/git"
+DEPLOY_DIR="/var/www/php"
+# EMAIL="<CORREO_GMAIL>"
+
+# Cambiar al directorio del repositorio
+cd $REPO_DIR || exit
+
+# Actualizar el contenido en el directorio de despliegue
+GIT_WORK_TREE=$DEPLOY_DIR git checkout -f master
+
+# Enviar un correo electrónico
+# echo "Se ha realizado un push al repositorio y se ha actualizado el directorio de despliegue." | mail -s "Notificación de Push" $EMAIL
+
+# agrego el honeypot 
+IP=$(who | grep pts | awk '{print $5}' | tr -d '()')
+USER=$(whoami)
+TIME=$(date "+%Y-%m-%d %H:%M:%S")
+
+echo "[$TIME] Acceso Git al honeypot desde IP: $IP | Usuario: $USER" >> /ce-500/log/git-honeypot.log
+--------------------------------------------------------------------------------------
+
+## 🐝 honeypot acceso mysql
+# 🔔 agrego prácticas de honeypot en mysql
+# habilito el archivo de logs
+systemctl restart mariadb
+touch /ce-500/log/honeypot-alertas.log
+chmod +x /ce-500/log/honeypot-alertas.log
+
+# creo un script para escuchar si alguien accede a la base de datos
+cd /ce-500
+vim mysql-honeypot-alerta.sh
+--------------------------------------------------------------------------------------
+#!/bin/bash
+
+# Ruta al log de MySQL
+LOG="/var/log/mysql/mysql.log"
+# Ruta del log interno de alertas
+ALERTA_LOG="/ce-500/log/honeypot-alertas.log"
+
+# Filtrar conexiones nuevas y evitar duplicados
+tail -F "$LOG" | grep --line-buffered "Connect" | while read linea; do
+    FECHA=$(date "+%Y-%m-%d %H:%M:%S")
+    echo "[$FECHA] ALERTA: Nueva conexión a MySQL → $linea" | tee -a "$ALERTA_LOG"
+
+    # enviar correo
+    echo "Acceso sospechoso a MySQL: $linea" | mail -s "🚨 Alerta MySQL" <CORREO>
+
+done
+--------------------------------------------------------------------------------------
+
+# creo un servicio para que lo lea de forma automática 
+vim /etc/systemd/system/mysql-honeypot.service
+--------------------------------------------------------------------------------------
+[Unit]
+Description=Honeypot para detectar accesos MySQL
+After=network.target mysql.service
+
+[Service]
+ExecStart=/ce-500/mysql-honeypot-alerta.sh
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+--------------------------------------------------------------------------------------
+
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl enable mysql-honeypot
+sudo systemctl start mysql-honeypot
+sudo systemctl status mysql-honeypot
+
+## 🚨 para que funcione mail tengo qeue configurarlo y elijo hacerlo con postfix
+# instalo postfix
+sudo apt-get install postfix mailutils -y
+> Sin configuración
+
+vim /etc/postfix/main.cf
+--------------------------------------------------------------------------------------
+Configuración de Gmail como servidor SMTP
+relayhost = [smtp.gmail.com]:587
+smtp_sasl_auth_enable = yes
+smtp_sasl_password_maps = static:<CORREO_GMAIL>:<PASSWORD_GMAIL_APLICACIÓN>
+smtp_sasl_security_options = noanonymous
+smtp_tls_security_level = may
+header_size_limit = 4096000
+--------------------------------------------------------------------------------------
+
+# las contraseñas aplicación de gmail se sacan desde 
+https://myaccount.google.com/apppasswords
+# aunque la contraseña la entregue con separaciones hay que declararla sin espacios
+
+# reinicio servicio
+systemctl restart postfix
+
+# pruebo postfix
+echo "Esto es un mensaje de prueba" | mail -s "Asunto de prueba" <CORREO_GMAIL>
+
+## 🚨 permito que mysql recoja logs
+mysql -u root -p
+> ****
+	> SET GLOBAL general_log = 'ON';
+	> SET GLOBAL log_output = 'FILE';
+
+	> SHOW VARIABLES LIKE 'general_log_file';
+	> SHOW VARIABLES LIKE 'general_log';
+
+# para que se mantenga después de reiniciar
+vim /etc/mysql/mariadb.conf.d/50-server.cnf
+--------------------------------------------------------------------------------------
+general_log_file       = /var/log/mysql/mysql.log
+general_log            = 1
+log_output = FILE
+--------------------------------------------------------------------------------------
+
+# pruebo el script y compruebo mi correo la alerta
+mysql -u root -p
+
+# compruebo los servicios
+systemctl reload apache2
+> password-certificado: **** 
+systemctl reload mysql
+
+systemctl status apache2
+systemctl status mysql
+
+#=========================================================================================================================
+[🪶MATO PROCESOS SI HAY FALLO]:
+# compruebo los procesos en mi puerto
+lsof -i :3000
+
+# mato el proceso
+sudo kill -9 <PID>
