@@ -1,0 +1,213 @@
+#=========================================================================================================================
+[👺ce-500]::
+# Guia de oficial instalación LXC      : https://linuxcontainers.org/#navigation
+# Guia no oficial                      : https://www.josedomingo.org/pledin/2021/12/introduccion-lxc/
+
+#=========================================================================================================================
+[👺RESUMEN PROYECTO · MÁQUINAS LABORATORÍO]:
+# 🧑‍🎓 Dentro de un servidor Debian, voy a crear unas máquinas virtuales con LXC (Linux Containers). Ya que lo que quiero es crear máquinas independientes con distintos servicios.
+# 🧑‍🎓 Voy a crear un script para hacer más sencillo la utilización e instalación de LXC
+#      Configuración de los contenedores LXC      :: cat /etc/lxc/default.conf
+#      Sistema de archivos del contenedor         :: cd /var/lib/lxc/<NOMBRE_CONTENEDOR>/rootfs/
+#      Listar todas las plantillas                :: ls /usr/share/lxc/templates/
+#      Configuración de red del contenedor        :: cat /var/lib/lxc/<NOMBRE_CONTENEDOR>/config
+
+
+#=========================================================================================================================
+[👺MANUAL DE FUNCIONAMIENTO LXC]:
+# 🧑‍🎓 Este paso lo dejo para conocer los comandos que voy hacer por debajo pero lo quiero qutomatizar con el script del siguiente apartado
+# 📦 Instalación en Debian
+sudo apt update
+sudo apt install lxc lxc-templates bridge-utils
+
+# 🧱 Crear un contenedor Debian
+sudo lxc-create -n vm-samba -t debian
+
+# 🔌 Iniciar el contenedor (segundo plano) : esto es para que aunque salga con "exit" seguirá encendido
+sudo lxc-start -n vm-samba -d
+
+# 🏗️ Comprobar que está en ejecución
+sudo lxc-info -n vm-samba
+# 🫸 Detener el contenedor
+sudo lxc-stop -n vm-samba
+# 📄 Listar 
+lxc-ls --fancy
+
+# 📲 Acceder al contenedor
+sudo lxc-attach -n vm-samba
+
+
+#=========================================================================================================================
+[👺INSTALACIÓN]:
+sudo apt update
+sudo apt install lxc
+
+# 🧑‍🎓 creo el script como comando global para ejecutar/crear/borrar las máquinas de manera directa
+# 📦 su nombre "kiribako", es una palabra japonesa que significa "guardar algo de valor dentro de una caja"
+# el script estaba en la ruta /ce-500/KIRIBAKO.sh
+# agrego el script de KIRIBAKO como:: 
+echo $PATH
+    > ../usr/bin/..
+cd /usr/bin/
+
+# agrego el script, con el nombre sin extension
+vim kiribako
+----------------------------------------------------------------------------
+#!/bin/bash
+# Función para mostrar el menú
+mostrar_menu() {
+    # Mostrar estado actual de los contenedores
+    echo "Estado actual de los contenedores:"
+    lxc-ls --fancy
+    echo ""
+
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+echo -e "${RED} ____  __..__         .__ ___.             __      "
+echo -e "|    |/ _||__|_______ |__|\\_ |__  _____   |  | __  ____"
+echo -e "|      /  |  |\\_  __ \\|  | | __ \\ \\__  \\  |  |/ / /  _ \\ "
+echo -e "|    |  \\ |  | |  | \\/|  | | \\_\\ \\ / __ \\_|    < (  <_> )"
+echo -e "|____|__ \\|__| |__|   |__| |___  /(____  /|__|_ \\ \\____/ "
+echo -e "        \\/                     \\/      \\/      \\/        ${NC}"
+
+    # Mostrar menú de opciones
+    echo "¿Qué deseas hacer?"
+    echo "1) Crear una nueva máquina"
+    echo "2) Iniciar una máquina en segundo plano"
+    echo "3) Acceder a una máquina"
+    echo "4) Parar una máquina"
+    echo "5) Eliminar una máquina"
+    echo "6) Salir"
+    read -p "Elige una opción [1-6]: " opcion
+
+    case $opcion in
+        1)
+            # Selección del tipo de sistema operativo
+            echo "¿Qué sistema operativo deseas para la máquina?"
+            echo "1) Debian"
+            echo "2) Ubuntu"
+            echo "3) Kali"
+            read -p "Elige una opción [1-3]: " so
+
+            case $so in
+                1)
+                    tipo_so="debian"
+                    ;;
+                2)
+                    tipo_so="ubuntu"
+                    ;;
+                3)
+                    tipo_so="kali"
+                    ;;
+                *)
+                    echo "Opción no válida. Se usará Debian por defecto."
+                    tipo_so="debian"
+                    ;;
+            esac
+
+            # Nombre de la nueva máquina
+            read -p "Introduce el nombre de la nueva máquina: " nombre
+            sudo lxc-create -n "$nombre" -t "$tipo_so"
+            ;;
+        2)
+            read -p "Introduce el nombre de la máquina a iniciar: " nombre
+            sudo lxc-start -n "$nombre" -d
+            ;;
+        3)
+            read -p "Introduce el nombre de la máquina a la que quieres acceder: " nombre
+            sudo lxc-attach -n "$nombre"
+            ;;
+        4)
+            read -p "Introduce el nombre de la máquina que deseas parar: " nombre
+            sudo lxc-stop -n "$nombre"
+            ;;
+        5)
+            read -p "Introduce el nombre de la máquina que deseas eliminar: " nombre
+            sudo lxc-destroy -n "$nombre"
+            ;;
+        6)
+            echo "Saliendo del script..."
+            exit 0
+            ;;
+        *)
+            echo "Opción no válida."
+            ;;
+    esac
+}
+
+# Bucle que muestra el menú hasta que el usuario decida salir
+while true; do
+    mostrar_menu
+done
+----------------------------------------------------------------------------
+
+chmod +x KIRIBAKO.sh
+
+# compruebo que puedo acceder al comando de manera global
+command -v kiribako
+
+#=========================================================================================================================
+[🛰️ce-500]::
+# 📄🚫 He decidido utilizar LXC en vez de Docker por que crea contenedores de S.O persistentes y es justo lo que quiero y en el caso de Docker son para aplicación, (aún creando volumenes no es lo mismo...)
+
+#=========================================================================================================================
+[🛰️BRIDGE DE RED LOCAL]::
+#🧑‍🎓 Por defecto LXC utiliza un bridge de lxcbr0 (que es NAT por defecto), pero voy a utilizar un bridge real (modo puente): br0 que use la red 192.168.1.x. (la misma que mi red local).
+vim /etc/network/interfaces
+--------------------------------------------------------------------------------------------------------------------------
+# Configuración de la interfaz WiFi
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# La interfaz Ethernet (configuración estática)
+auto eno1
+iface eno1 inet manual
+
+ # Bridge que usará la IP del host
+ auto br0
+ iface br0 inet static
+     address 192.168.1.57
+     netmask 255.255.255.0
+     gateway 192.168.1.1
+     bridge_ports eno1
+     bridge_stp off
+        bridge_fd 0
+        bridge_maxwait 0
+dns-nameservers 8.8.8.8 1.1.1.1
+
+# The primary network interface
+#allow-hotplug wlp3s0
+#iface wlp3s0 inet dhcp
+#   wpa-ssid <SSID_WIFI>
+#   wpa-psk  <PASSWORD_WIFI>
+--------------------------------------------------------------------------------------------------------------------------
+
+# modifico la configuración de red de LXC para asociar el bridge
+vim /etc/lxc/default.conf
+--------------------------------------------------------------------------------------------------------------------------
+# crea una interfaz virtual tipo veth y la conecta al bridge br0
+lxc.net.0.type = veth
+lxc.net.0.link = br0
+lxc.net.0.flags = up
+
+# permite perfiles AppArmor y anidamiento de contenedores
+lxc.apparmor.profile = generated
+lxc.apparmor.allow_nesting = 1
+
+# Usar systemd como PID 1
+lxc.init.cmd = /lib/systemd/systemd
+
+# Montar cgroups y sistemas necesarios
+lxc.mount.auto = proc sys cgroup
+lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file 0 0
+--------------------------------------------------------------------------------------------------------------------------
+
+# reinicio el servicio de la red y reinicio
+systemctl restart networking
+sudo reboot now
