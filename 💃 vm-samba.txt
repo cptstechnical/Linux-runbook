@@ -1,0 +1,289 @@
+# 🧠 vm-samba → Archivos compartidos / SMB
+# 🧠 Samba permite compartir archivos e impresoras con sistemas Windows a través de los protocolos SMB/CIFS.
+# 🐧 Utilizo esta máquina como servidor de archivos compartidos por usuarios, para compartir manuales IT. 
+# 🐧 Además también hace de monitorización para registrar los accesos de la carpeta principal
+#=========================================================================================================================
+[💃ce-500]::
+Documentación ofical samba                 : https://wiki.samba.org/index.php/Setting_up_Samba_as_a_Standalone_Server
+Documentación oficial de usuarios samba    : https://wiki.samba.org/index.php/User_and_Group_management
+Documentación oficial de restic            : https://restic.readthedocs.io/en/latest/030_preparing_a_new_repo.html#local
+
+#=========================================================================================================================
+[💃INSTALACIONES]::
+
+# instalaciones 
+apt update
+apt upgrade -y
+
+## ssh
+## desde la consola del contenedor a través de proxmox
+# Amplio tiempo de ssh y deshabilitar la suspensión
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+
+# Realizo unos cambios en el archivo de configuración
+nano /etc/ssh/sshd_config
+----------------------------------------------------------------------------
+    Port 22
+    PasswordAuthentication yes
+    PermitRootLogin yes
+----------------------------------------------------------------------------
+
+# Inicializo el servicio y lo habilito para inicio de la sesión
+systemctl start sshd
+systemctl enable sshd
+systemctl status sshd
+
+# reinicio
+reboot now
+
+# creo una carpeta en el contenedor e instalo el script
+mkdir /ce-500 && cd /ce-500
+apt install vim -y
+vim script-00.sh
+# i - (shift + botón derecho):
+--------------------------------------------------------------------------------------
+    # código de /SCRIPTS/script-00.sh de este github
+--------------------------------------------------------------------------------------
+
+# doy permisos y hago la instalación
+chmod +x script-00.sh
+./script-00.sh
+source ~/.bashrc
+
+#=========================================================================================================================
+[💃MODIFICAR RUTA DE SAMBA]::
+# Instalación samba
+sudo apt install -y samba 
+
+# samba-common samba-common-bin
+# creo carpetas para archivos
+mkdir /ce-500/samba/ && mkdir /ce-500/samba/datos
+
+# hago una copia del archivo principal
+mv /etc/samba/smb.conf /etc/samba/_smb.conf
+
+# voy agregar un solo usuario a la configuración Ilerna, 
+# pero lo configuro dentro de un grupo por si en un futuro quiero agregar más usuarios con los mismos permisos
+vim /etc/samba/smb.conf
+--------------------------------------------------------------------------------------
+[global]
+    interfaces = lo eth0
+    bind interfaces only = yes
+    workgroup = WORKGROUP
+    server string = Samba Server
+    netbios name = samba
+    security = user
+    passdb backend = tdbsam:/ce-500/samba/samba_passdb.tdb
+    map to guest = Bad User
+
+[public]
+    path = /ce-500/samba/datos
+    browsable = yes
+    writable = yes
+    guest ok = no
+    read only = no
+    valid users = Ilerna
+    force user = nobody
+    force group = smbIlerna
+    create mask = 0770
+    directory mask = 0775
+--------------------------------------------------------------------------------------
+# ***********************************************************************************************************
+# 🧑‍🎓 Que hace cada opción que he elegido::
+#    interfaces = lo eth0
+#    bind interfaces only = yes
+#    workgroup = WORKGROUP                                       :: Grupo de trabajo
+#    server string = Samba Server                                :: Descripción
+#    netbios name = samba                                        :: Nombre en la red
+#    security = user                                             :: Modo de seguridad basado en usuarios
+#    passdb backend = tdbsam:/ce-500/samba/samba_passdb.tdb      :: Declaro la ubicación de la db de usuarios
+#    map to guest = Bad User                                     :: Usuario invitados no validos
+#    path = /ce-500/samba/datos                                  :: Ruta de la carpeta
+#    browsable = yes                                             :: Carpeta visible en red
+#    writable = yes                                              :: Permite la escritura en la carpeta
+#    guest ok = no                                               :: No permite usuarios invitados
+#    read only = no                                              :: Permite la escritura
+#    valid users = Ilerna                                        :: Acceso a Ilerna
+#    force user = nobody                                         :: propiedad de nobody (para agregar más usuarios)
+#    force group = smbIlerna                                     :: Archivos propiedad del grupo smbIlerna
+#    create mask = 0770                                          :: Permisos para archivos creados
+#    directory mask = 0775                                       :: Permisos para directorios creados
+# ***********************************************************************************************************
+
+# si todo va bien, creo un usuario
+sudo useradd -s /usr/sbin/nologin Ilerna
+# creo usuario para samba
+smbpasswd -a Ilerna
+    > **********
+# compruebo que existe
+pdbedit -L
+
+# creo un grupo y lo añado al usuario Ilerna
+groupadd smbIlerna
+usermod -aG smbIlerna Ilerna
+
+# crear archivo de contraseñas de usuarios
+touch /ce-500/samba/samba_passdb.tdb
+chown nobody:smbIlerna /ce-500/samba/samba_passdb.tdb
+chmod 0660 /ce-500/samba/samba_passdb.tdb
+
+# doy permisos a las carpetas
+sudo chmod -R 0775 /ce-500/samba/datos
+sudo chown -R nobody:smbIlerna /ce-500/samba/datos
+
+# desactivo el active directory
+# systemctl disable samba-ad-dc
+# apt-get remove samba-ad-dc
+
+# reinicio servicio
+systemctl restart smbd
+systemctl status smbd
+
+# Reinicio el servicio
+systemctl daemon-reload
+systemctl start smbd 
+systemctl enable smbd  
+systemctl status smbd  
+
+# Entro desde mi misma red
+\\<NOMBRE_DEL_HOST>
+
+#=========================================================================================================================
+[💃INSTALO RESTIC]::
+# restic lo voy a utilizar en caso de querer rescatar archivos en vivo
+apt install restic -y
+
+# creo la carpeta de backups
+mkdir /ce-500/backups
+
+# reinicio el servicio
+systemctl restart smbd
+
+# Inicializa un nuevo repositorio de Restic
+export RESTIC_REPOSITORY=/ce-500/backups
+export RESTIC_PASSWORD=**********
+restic init
+
+# respaldo inicial de los archivos
+restic backup /ce-500/backups
+
+# creo un alias
+vim ~/.bashrc
+--------------------------------------------------------------------------------------
+    alias _crear_backup='restic backup /ce-500/backups'
+--------------------------------------------------------------------------------------
+source ~/.bashrc
+
+-
+## para recuperar archivos
+# listar snapshots
+restic snapshots
+
+# recuperar archivos
+restic restore <snapshot_id> --target /ruta/a/la/carpeta/de/recuperacion
+
+# eliminar snapshot
+restic forget <snapshot_id>
+
+#=========================================================================================================================
+[💃INSTALO ANACRON]::
+# es ideal para sistemas que no están siempre encendidos (como un portátil). Ejecuta tareas periódicas aunque el equipo esté apagado en el momento programado
+
+# instalo
+sudo apt install anacron -y
+
+vim /etc/cron.daily/restic-backup
+-----------------------------------------------------------------------------
+# /etc/anacrontab
+# formato: periodo  delay identificador  comando
+# Ejemplo de definición de puesto de trabajo:
+# .---------------------- período en días (1 = diario, 7 = semanal, etc.)
+# | .-------------------- retraso en minutos después del arranque
+# | |      .------------- Identificador de trabajo (utilizado para registros y seguimiento de estado)
+# | |      |        .---- comando a ejecutar
+# | |      |        |
+1 5 restic.daily nice /ce-500/backups
+# cada día trás cinco minutos de arrancar la máquina con bajo rendimiento de CPU 
+-----------------------------------------------------------------------------
+sudo chmod +x /etc/cron.daily/restic-backup
+
+mv /etc/anacrontab /etc/_anacrontab
+vim /etc/anacrontab
+-----------------------------------------------------------------------------
+# /etc/anacrontab
+# formato: periodo  delay identificador  comando
+1 5 restic.daily nice /etc/cron.daily/restic-backup
+
+# 1 → Ejecutar cada 1 día
+# 5 → El backup correrá 5 minutos después del arranque
+# restic.daily → Identificador único
+# comando → Ruta al script
+-----------------------------------------------------------------------------
+
+# anacron se ejecuta normalmente vía systemd (anacron.timer) o desde /etc/init.d/anacron
+# Logs: /var/log/syslog
+journalctl -u anacron
+
+#=========================================================================================================================
+[💃CONFIGURACIÓN MONITORIZACIÓN]::
+# aunque este samba lo voy a utilizar para compartir manuales de IT, lo voy a configurar como un sistema de alertas 
+
+vim /etc/samba/smb.conf
+--------------------------------------------------------------------------------------
+[global]
+    # auditoría
+    log level = 2
+    log file = /ce-500/log/log.txt
+    max log size = 1000
+
+    # acceso a archivos
+    vfs objects = audit
+    audit:facility = LOCAL7
+    audit:priority = NOTICE
+    audit:log = /var/log/samba/audit.log
+
+    # configuración samba
+    interfaces = lo eth0
+    bind interfaces only = yes
+    workgroup = WORKGROUP
+    server string = Samba Server
+    netbios name = samba
+    security = user
+    passdb backend = tdbsam:/ce-500/samba/samba_passdb.tdb
+    map to guest = Bad User
+
+[public]
+    path = /ce-500/samba/datos
+    browsable = yes
+    writable = yes
+    guest ok = no
+    read only = no
+    valid users = Ilerna
+    force user = nobody
+    force group = smbIlerna
+    create mask = 0770
+    directory mask = 0775
+
+    # configuración archivos
+    vfs objects = audit
+    audit:facility = LOCAL7
+    audit:priority = NOTICE
+    audit:log = /ce-500/log/log-audit.txt
+--------------------------------------------------------------------------------------
+# ***********************************************************************************************************
+# 🧑‍🎓 Que hace cada opción que he elegido::
+#    log level = 2                                              :: nivel de detalle de los registros, eventos de acceso
+#    log file = /ce-500/log/log.txt                             :: archivo para almacenar logs de registros
+#    max log size = 1000                                        :: tamaño de los archivos de registro a 1 MB
+#    vfs objects = audit                                        :: auditoría de archivos compartidos (VFS)
+#    audit:facility = LOCAL7                                    :: tipo de registro, registra auditorías de seguridad
+#    audit:priority = NOTICE                                    :: prioridad de los eventos que se registran o superiores
+#    audit:log = /ce-500/log/log-audit.txt                      :: Ruta de la carpeta de la auditoria de archivos
+#    directory mask = 0775                                      :: Permisos para directorios creados
+# ***********************************************************************************************************
+
+# dar permisos y crear archivo de log
+mkdir /ce-500/log 
+touch /ce-500/log/log.txt
+sudo chown root:root /ce-500/log/log.txt
+sudo chmod 644 /ce-500/log/log.txt
