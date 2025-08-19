@@ -1,4 +1,28 @@
+# instalaciones 
+apt update
+apt upgrade -y
 
+## ssh
+## desde la consola del contenedor a través de proxmox
+# Amplio tiempo de ssh y deshabilitar la suspensión
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 
+# Realizo unos cambios en el archivo de configuración
+nano /etc/ssh/sshd_config
+----------------------------------------------------------------------------
+    Port 22
+    PasswordAuthentication yes
+    PermitRootLogin yes
+----------------------------------------------------------------------------
 
-https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/main/script-00.sh
+# Inicializo el servicio y lo habilito para inicio de la sesión
+systemctl start sshd
+systemctl enable sshd
+systemctl status sshd
+
+# reinicio
+reboot now
+
+# instalo el script directamente desde mi repositorio público scripts
+mkdir /aptelliot && cd /aptelliot
+bash -c "$(wget https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/main/script-00.sh -qO -)"
