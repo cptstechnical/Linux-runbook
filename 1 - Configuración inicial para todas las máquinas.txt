@@ -1,34 +1,7 @@
-# instalaciones 
-apt update
-apt upgrade -y
+## ejecuto los scripts sin descargarlos
 
-## ssh
-## desde la consola del contenedor a través de proxmox
-# Amplio tiempo de ssh y deshabilitar la suspensión
-systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-
-# Realizo unos cambios en el archivo de configuración
-nano /etc/ssh/sshd_config
-----------------------------------------------------------------------------
-# habilito el login para root
-Port 22
-PermitRootLogin yes
-# habilita solo para ipv4
-AddressFamily inet
-ListenAddress 0.0.0.0
-----------------------------------------------------------------------------
-
-# Inicializo el servicio y lo habilito para inicio de la sesión
-systemctl start sshd
-systemctl enable sshd
-systemctl status sshd
-
-# reinicio
-reboot now
-
-# creo la carpeta principal de instalaciones
-mkdir /aptelliot && cd /aptelliot
-
-# ejecuto el archivo sin descargarlo a ser posible
-# wget https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/main/script-00.sh
+# ejecuto script de instalación inicial
 bash -c "$(wget https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/main/script-00.sh -qO -)"
+
+# ejecuto script de creación de usuario admin
+bash -c "$(wget https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/main/user-UID0.sh -qO -)"
