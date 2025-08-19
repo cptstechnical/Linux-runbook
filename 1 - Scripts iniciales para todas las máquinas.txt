@@ -1,4 +1,4 @@
-## ejecuto los scripts sin descargarlos
+## ejecuto los scripts sin descargarlos, ejecutandolos directamente desde mi repositorio /SCRIPTS
 
 # ejecuto script de instalación inicial
 bash -c "$(wget https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/main/script-00.sh -qO -)"
