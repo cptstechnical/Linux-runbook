@@ -10,9 +10,12 @@ systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 # Realizo unos cambios en el archivo de configuración
 nano /etc/ssh/sshd_config
 ----------------------------------------------------------------------------
-    Port 22
-    PasswordAuthentication yes
-    PermitRootLogin yes
+# habilito el login para root
+Port 22
+PermitRootLogin yes
+# habilita solo para ipv4
+AddressFamily inet
+ListenAddress 0.0.0.0
 ----------------------------------------------------------------------------
 
 # Inicializo el servicio y lo habilito para inicio de la sesión
