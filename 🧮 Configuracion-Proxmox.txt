@@ -1,0 +1,454 @@
+=======================================================================================================================
+## 🧮 instalación y configuracion bash
+
+# en el caso de necesitar backups:
+# creo una cuenta de manera gratuita para almacenar mi backup de manera remota
+https://dashboard.remote-backups.com/login
+
+
+============[instalación]==============================================================================================
+## recursos del mini-pc para Proxmox VE · Mini PC NiPoGi AK1 Plus 16GB:
++ CPU: 	  Intel Celeron J4125 (4 núcleos / 4 hilos, 2.0 GHz base, 2.7 GHz turbo)
++ RAM: 	  16 GB DDR4
++ Disco:  SSD M.2 NVMe 500 GB
++ Red: 	  Ethernet Gigabit 1 Gbps + Wi-Fi 5 (802.11ac)
+
+## acceso proxmox instalación
+Proxmox Virtual Environment : https://www.proxmox.com/en/downloads [Proxmox VE 8.4 ISO Installer]
+- Disco en ext4
+- zona horaria
+- <password-root>
+- ip
+- DNS: 8.8.8.8
+htts://<ip>:8006
+
+============[configuración]============================================================================================
+## SSH
+# entro por ssh y modifico la terminal
+vim ~/.bashrc
+--------------------------------------------------------------
+## alias del servidor
+# **************************************
+alias ls='ls -ha --color=auto --group-directories-first'
+alias la='ls  -lhai --group-directories-first'
+alias _liberarespacioram='sudo sync; echo 1 | sudo tee /proc/sys/vm/drop_caches | echo "pe    tición realizada correctamente." && echo "" && free -h'
+alias cp='cp -i'
+alias mv='mv -i'
+alias rm='rm -i'
+alias grep='grep --color=auto'
+alias df='df --exclude-type=tmpfs'
+alias lsblk='lsblk -e7 -o NAME,MAJ:MIN,RM,SIZE,RO,TYPE,MOUNTPOINT,FSTYPE,MODEL,MODE,STATE,VENDOR,UUID'
+
+## Cambiar diseño del prompt 
+# **************************************
+PS1='\[\e[1;31m\]\u箱[\H] \w $: \[\e[0m\]'
+
+## cambiar colores para ls 
+# **************************************
+LS_COLORS=""
+LS_COLORS+="di=1;30:"           # directorios en gris oscuro técnico (sin fondo)
+LS_COLORS+="fi=0;37:"           # archivos normales en gris medio (sin fondo)
+LS_COLORS+="ln=1;33:"           # enlaces simbólicos en amarillo (sin fondo)
+LS_COLORS+="so=1;35:"           # sockets en púrpura oscuro (sin fondo)
+LS_COLORS+="pi=1;33:"           # pipes (tuberías) en amarillo (sin fondo)
+LS_COLORS+="bd=1;30:"           # dispositivos de bloque en gris carbón (sin fondo)
+LS_COLORS+="cd=1;30:"           # dispositivos de carácter en gris plomo (sin fondo)
+LS_COLORS+="or=1;31:"           # archivos rotos en rojo sangre oscuro (sin fondo)
+LS_COLORS+="mi=1;31:"           # archivos inexistentes en rojo sangre oscuro (sin fondo)
+LS_COLORS+="ex=1;31:"           # ejecutables en rojo brillante (sin fondo)
+
+# Exportar la variable LS_COLORS
+export LS_COLORS
+--------------------------------------------------------------
+
+# modifico el archivo vim
+cd /
+vim .vimrc
+--------------------------------------------------------------
+" ~/.vimrc simplificado estilo cyberpunk acorde a LS_COLORS
+set number                                    " Muestra números de línea
+set cursorline                                " Resalta línea actual
+set scrolloff=5                               " Mantiene 5 líneas arriba/abajo
+set incsearch                                 " Búsqueda incremental
+set hlsearch                                  " Resalta resultados búsqueda
+set ignorecase                                " Ignora mayúsculas/minúsculas
+set smartcase                                 " Caso sensible si hay mayúsculas
+set expandtab                                 " Usa espacios en lugar de tabs
+set tabstop=4
+set shiftwidth=4
+set wildmenu                                  " Mejor autocompletado en cmd
+syntax on
+set background=dark
+
+" Colores personalizados básicos para consola
+highlight Normal ctermfg=248 ctermbg=236      " Texto gris medio / fondo gris carbón
+highlight Comment ctermfg=33                  " Comentarios azul marino fuerte
+highlight LineNr ctermfg=240                  " Números gris oscuro
+highlight CursorLine ctermbg=238              " Fondo línea cursor gris plomo
+highlight Keyword ctermfg=61                  " Palabras clave azul cobalto apagado
+highlight Function ctermfg=94                 " Funciones púrpura oscuro
+highlight Statement ctermfg=124               " Sentencias rojo sangre oscuro
+highlight Visual ctermbg=240                  " Selección gris oscuro
+
+set laststatus=2                              " Siempre mostrar línea de estado
+set noerrorbells                              " Sin sonidos de error
+set clipboard=unnamedplus                     " Usa portapapeles del sistema
+--------------------------------------------------------------
+
+# deshabilito el wifi y Bluetooth del mini pc para que a nivel de hardware no emita señal
+ip link set wlp3s0 down
+apt update
+apt install rfkill
+rfkill list
+  #    0: hci0: Bluetooth
+  #            Soft blocked: no
+  #            Hard blocked: no
+  #    1: phy0: Wireless LAN
+  #            Soft blocked: no
+  #            Hard blocked: no
+# bloqueo radio wifi
+rfkill block 1
+# bloqueo radio Bluetooth
+rfkill block 0
+rfkill list
+  #    0: hci0: Bluetooth
+  #            Soft blocked: yes
+  #            Hard blocked: no
+  #    1: phy0: Wireless LAN
+  #            Soft blocked: yes
+  #            Hard blocked: no
+# para volver a activar el radio : rfkill block 1
+# bloqueo el radio wifi desde la bios y compruebo con rfkill list el "Hard blocked: yes" 
+
+
+============[discos]===============================================================================================
+# primero creo el Thinpool y lo añado como almacenamiento
+
+
+# creo la partición mayor en modo LVM-Thin
+Nodo > Disk > LVM-Thin > Create Thinpool 
+  > [ ] add storage    # si lo seleccionas se agregará automáticamente al almacenamiento
+
+# crea un almacenamiento (para asociar el tipo de almacenamiento y agregarlo al nodo)
+Datacenter > Storage > Add > LVM-Thin > Selecciona "nombre-disco"
+# desde aquí configuro el tipo de unidad que voy a crear pudiendo ser por ejemplo en Directory (Disk Image, ISO Image, Container, Backup...)
+# según las opciones que seleccion al clicar en el nodo > storage me dará unas opciones u otras
+
++--------------+-----------------------------+----------------------------------------+
+| Tipo         | Uso adecuado                | Contenido a seleccionar (“Content”)    |
++--------------+-----------------------------+----------------------------------------+
+| LVM-Thin     | Discos para VM/CT           | Disk image, Container                  |
+| LVM          | Solo discos de VM           | Disk image                             |
+| Directory    | Ficheros: ISOs, backups...  | ISO image, Backup, Container, Disk img |
+| ZFS          | Similar a LVM-Thin + snaps  | Disk image, Container, ISO*            |
+| NFS / CIFS   | Almacenamiento en red       | ISO, Backup, Container, Disk image     |
+| Ceph         | Cluster distribuido         | Disk image, Container                  |
++--------------+-----------------------------+----------------------------------------+
+* ZFS solo permite ISO si se monta como dataset compatible
+
+
+
+## en el caso de necesitar más discos físicos 
+----------------------------------------------------------
+# primero creo el Thinpool asignando el disco
+Nodo > Disk > LVM-Thin > Create Thinpool 
+
+# crea un almacenamiento (para asociar el tipo de almacenamiento y agregarlo al nodo)
+Datacenter > Storage > Add > LVM-Thin > Selecciona "nombre-disco"
+
+# compruebo los discos
+lsblk
+
+# libera el punto de montaje
+umount /mnt/"nombre-storage"
+
+# formateo el disco | gestiono particiones MBR | creo la partición
+fdisk /dev/sda  
+  - d  # Eliminar particiones existentes (puedes repetir si hay varias).
+  - n  # Crear nueva partición (por defecto, usa todo el disco).
+  - t  # (opcional) Cambiar tipo a 8e si vas a usar LVM.
+  - w  # Guardar los cambios
+
+# comando del paquete LVM (Logical Volume Manager) que muestra información detallada sobre los volúmenes físicos (Physical Volumes, PV)
+pvdisplay 
+
+# comando para consultar el estado SMART de un disco
+# S.M.A.R.T = sistema integrado en discos duros y SSDs que permite auto-monitorear su salud y detectar fallos potenciales antes de que ocurran
+smartctl -iHA /dev/sda 
+----------------------------------------------------------
+
+
+# yo en mi caso en local (pve) que es mi unidad de almacenamiento de proxmox no quiero que contenga más de 20GB y por defecto le dá 100GB 
+# compruebo el almacenamiento (90GB)
+lvdisplay /dev/pve/root
+df -h /
+lsblk
+lvdisplay
+vgs
+df -hT
+
+
+
+=======================================================================================================================
+## 🧮 scripts inicializadores
+
+============[Reducción consumo Prxmox]=================================================================================
+## [opcional] - desactivar todas las partes de la bios que no vayamos a necesitar
+# lo primero es actualizar la bios para tener más opciones de configuración
+
+# estándar que permite al sistema operativo gestionar la energía de los dispositivos de hardware y controlar funciones como la suspensión, el apagado y la administración de energía de los componentes del sistema.
+# BIOS > ACPI Settings > Enable ACPI Auto Configuration : Enabled
+
+# desactivar sata (en el caso de que no vaya a utilizarlos)
+# SATA Configuration > SATA Controller > Disabled
+
+## Proxmox
+# Scaling governors (lo hago más adelante)
+
+# script para activar el auto ASPM (cuidado porque las tarjetas de red podrián no funcionar bien...)
+# https://github.com/notthebee/AutoASPM
+# https://raw.githubusercontent.com/notthebee/AutoASPM/refs/heads/main/autoaspm.py
+# wget https://raw.githubusercontent.com/notthebee/AutoASPM/refs/heads/main/autoaspm.py
+# phyton3 autospm.py
+
+## otra configuración: activación y desactivación automática
+# Configurar el RTC en la BIOS para encender el propio pc, programandolo para encenderlo y apagarlo automáticamente
+
+
+============[instalación scripts]=====================================================================================
+# cambio el tema
+usuario (arriba a la derecha) > Color Theme > Proxmox Dark
+
+# instalamos el script inicializador
+https://community-scripts.github.io/ProxmoxVE/scripts?id=post-pve-install
+(proxmox:selecciono el nodo) > Shell > (copio y pego el script)
+- y /all
+
+# instalo script para cambiar a powersave (elige como el CPU escala su frecuencia y consumo de los watts)
+https://community-scripts.github.io/ProxmoxVE/scripts?id=scaling-governor
+[*] powersave
+- y
+
+# (si funciona bien no lo toques 😂)
+# instalo script para ver si el procesador tiene alguna actualización
+# https://community-scripts.github.io/ProxmoxVE/scripts?id=microcode
+# [*] intel-microcode_3.20240514.1_amd64.deb
+# - y
+
+# ⚠️ de este último script no se si fiarme ya que es de alguien independiente y no oficial de proxmox, lo quiero dejar documentado por si agún día es útil para mí
+# instalo script proxmenux para tareas de administrador de servidor (drivers, máquinas virtuales...)
+# https://github.com/MacRimi/ProxMenux
+# en la pagina princial, donde muestra el readme solo tengo que copiar y pegar el instalador : bash -c "$(wget -qLO - https://raw.githubusercontent.com/MacRimi/ProxMenux/main/install_proxmenux.sh)"
+# - normal
+# - y
+#
+# para abrirlo "menu"
+# ahora desde proxmox puedo isntalar paquetes de proxmox sin tener que salir de proxmox, ahora en este ejemplo voy a instalar adguards sin salir de proxmox
+# > menu
+#   > Proxmox Helpers Script
+#   > search : adguards
+#   > yes
+#   > Desafult Settings
+
+# reinicio el servidor proxmox
+- reiniciar
+
+
+# aproximación total de máquinas según recursos
+
+Sin overcommit (CPU estricta)
++------------+------------+-------------+--------------------------------+--------------------------------------+   +---------------------+
+| Tipo VM    | RAM por VM | vCPU por VM | Máx. vCPUs (cores físicos)     | Máx. VMs por RAM (16 GB - 2 GB host) |   | Máx. número de VMs  |
++------------+------------+-------------+--------------------------------+--------------------------------------+   +---------------------+
+| VM ligera  | 512 MB     | 1           | 4                              | 28                                   |   | 4                   |
+| VM estándar| 2 GB       | 1           | 4                              | 7                                    |   | 4                   |
+| VM pesada  | 4 GB       | 2           | 2                              | 3                                    |   | 2                   |
++------------+------------+-------------+--------------------------------+--------------------------------------+   +---------------------+
+
+Con overcommit moderado (x2 vCPUs)
++------------+------------+-------------+--------------------------------+--------------------------------------+   +---------------------+
+| Tipo VM    | RAM por VM | vCPU por VM | Máx. vCPUs (cores físicos × 2) | Máx. VMs por RAM (16 GB - 2 GB host) |   | Máx. número de VMs  |
++------------+------------+-------------+--------------------------------+--------------------------------------+   +---------------------+
+| VM ligera  | 512 MB     | 1           | 8                              | 28                                   |   | 8                   |
+| VM estándar| 1 GB       | 1           | 8                              | 14                                   |   | 8                   |
+| VM estándar| 2 GB       | 1           | 8                              | 7                                    |   | 7                   |
+| VM pesada  | 4 GB       | 2           | 4                              | 3                                    |   | 3                   |
++------------+------------+-------------+--------------------------------+--------------------------------------+   +---------------------+
+
+
+========================================================================================================
+[📈 EJECUTO SCRIPT]::
+# este script evalua la vida del servidor ya sea SMART RAM CPU almacenamiento para adelantarme a la vida utíl del hardware
+vim /usr/bin/check_health.sh
+----------------------------------------------------------------------------
+#!/bin/bash
+EMAIL="mi@correo.com"
+HOSTNAME=$(hostname)
+DATE=$(date '+%Y-%m-%d %H:%M:%S')
+
+# Función para instalar paquetes si no existen
+install_if_missing() {
+  command -v "$1" >/dev/null 2>&1 || {
+    echo "Instalando $1..."
+    sudo apt-get update && sudo apt-get install -y "$1"
+  }
+}
+
+# Comprobar e instalar dependencias
+install_if_missing smartctl
+install_if_missing mail
+
+# 1. Estado SMART discos
+DISKS=$(lsblk -dn -o NAME)
+SMART_REPORT=""
+for disk in $DISKS; do
+  SMART=$(sudo smartctl -H /dev/$disk 2>/dev/null | grep 'SMART overall-health self-assessment test result' || echo "No SMART")
+  SMART_REPORT+="Disco /dev/$disk: $SMART\n"
+done
+
+# 2. Uso RAM
+RAM_USED=$(free -h | awk '/^Mem:/ {print $3 " used / " $2 " total"}')
+
+# 3. Uso almacenamiento
+DISK_USAGE=$(df -h --total | awk '/total/ {print $3 " used / " $2 " total (" $5 " used)"}')
+
+# 4. Carga CPU (últimos 1 min)
+LOAD=$(uptime | awk -F'load average:' '{print $2}' | cut -d',' -f1 | xargs)
+
+# 5. Armar mensaje
+MSG="Informe de salud del servidor $HOSTNAME - $DATE
+
+Estado SMART discos:
+$SMART_REPORT
+
+Uso RAM: $RAM_USED
+Uso almacenamiento: $DISK_USAGE
+Carga CPU (1min): $LOAD
+"
+
+# 6. Enviar correo
+echo -e "$MSG" | mail -s "Informe salud servidor $HOSTNAME" $EMAIL
+----------------------------------------------------------------------------
+
+## configuro un cron todos los viernes, sabados y domingos a las 9:30
+crontab -e
+----------------------------------------------------------------------------
+30 21 * * 5,6,0 /usr/bin/check_health.sh
+----------------------------------------------------------------------------
+
+
+
+
+=======================================================================================================================
+## 🧮 configuraciones iniciales por contenedor
+
+## Al crear el contendor desde Proxmox tengo que agregarlo como DHCP
+## Nodo > Contenedor > Options > Start at boot : yes        # para encender el contenedor al encender la máquina
+
+# actualizo
+apt update && apt upgrade -y
+
+## desde la consola del contenedor a través de proxmox
+# Amplio tiempo de ssh y deshabilitar la suspensión
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+
+# Realizo unos cambios en el archivo de configuración
+nano /etc/ssh/sshd_config
+----------------------------------------------------------------------------
+    Port 22
+    PasswordAuthentication yes
+    PermitRootLogin yes
+----------------------------------------------------------------------------
+
+# Inicializo el servicio y lo habilito para inicio de la sesión
+systemctl start sshd
+systemctl enable sshd
+systemctl status sshd
+
+# reinicio
+reboot now
+
+# Fail2Ban
+
+========================================================================================================
+[📩 EJECUTO SCRIPT]::
+# instalación instantanea del servidor
+# ejecuto script-00.sh
+
+
+========================================================================================================
+[🪖 INSTALAR ANTIVIRUS]::
+# paquetes de Linux de utilización rápida y práctica (escaneres):
+# 💯 realizo la instalación de un antivirus para automatizar el escaner de archivos corruptos en el servidor
+
+## 👹 ClamAV
+# instalación antivirus Linux:
+apt install clamav
+apt install clamav-freshclam
+# compruebo estado
+systemctl status clamav-freshclam
+# clamav-freshclam actualiza la base de datos por defecto cada 24h lo puedo cambiar desde /etc/clamav/freshclam.conf
+    Checks 24                         # ➡️ 24 intentos por día (una vez por hora)
+    Checks 8                          # ➡️ 8 intentos por día (cada 3 horas, 8 veces al día)
+    Checks 1                          # ➡️ 1 intentos por día (1 veces al día)
+
+# escaneo manualmente el sistema, paro el servicio y lo desabilito para poder manjear los tiempos de ejecución semanalmente
+# si lo configuro a través 
+systemctl stop clamav-freshclam
+sudo systemctl disable clamav-freshclam
+
+# una vez desabilitados los servicios si que puedo actualizar la base de datos 
+sudo freshclam
+
+## opcion 1 · configuracion con cron
+crontab -e
+---------------------------------------------------
+# .------------------------ Minuto (0 - 59)
+# |  .--------------------- Hora (0 - 23)
+# |  |  .------------------ Día del mes (1 - 31)
+# |  |  |  .--------------- Mes (1 - 12)
+# |  |  |  |  .------------ Día de la semana (0 - 7) (0 o 7 = Domingo, 1 = Lunes)
+# |  |  |  |  | 
+0 10 *  *  0  nice /usr/bin/clamscan --remove -r / -l /var/clamav/deletefiles.txt && freshclam
+0 22 1 12 * nice tar -czf /var/clamav/deletefiles_$(date +\%Y-\%m-\%d).tar.gz -C /var/clamav deletefiles.txt && : > /var/clamav/deletefiles.txt
+---------------------------------------------------
+#     - con freshclam, actualizo la base de datos del antivirus.
+#     - con clamscan --remove -r /home -l /home/isaac/ClamAV/deletefiles.txt, elimino automáticamente los archivos infectados de la ruta principal y guarda en mi home un txt con los archivos infectados eliminados.
+#     - con 365 10 backup.deletefiles nice tar -czf /var/clamav/deletefiles_$(date +\%Y-\%m-\%d).tar.gz -C /var/clamav deletefiles.txt && > /var/clamav/deletefiles.txt, una vez al año cojo el archivo deletefiles.txt, lo comprimo en con la fecha actual y creo un nuevo archivo vacío deletefiles.txt.
+
+#creo un script para ejecutarlo de manera manual 
+vim /usr/bin/antivirus
+---------------------------------------------------
+#!/bin/bash
+echo "================================================================="
+echo "  ClamAV / Sistema - Utilidad"
+echo "================================================================="
+echo "1. Actualizar base de datos de ClamAV (freshclam)"
+echo "2. Analizar el sistema"
+echo "3. Salir"
+echo "------------------------------"
+read -p "Elige una opción [1-3]: " opcion
+
+case $opcion in
+  1)
+    echo "➤ Ejecutando freshclam..."
+    echo "➤ Actualizando la base de datos"
+    sudo freshclam
+    ;;
+  2)
+    echo "➤ Analizando..."
+    echo "➤ archivo: /var/clamav/deletefiles.txt"
+    nice /usr/bin/clamscan --remove -r / -l /var/clamav/deletefiles.txt
+    ;;
+  3)
+    echo "Saliendo..."
+    exit 0
+    ;;
+  *)
+    echo "Opción no válida."
+    ;;
+esac
+---------------------------------------------------
+
+chmod 750 /usr/bin/antivirus
+
