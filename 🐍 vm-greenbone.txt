@@ -8,51 +8,6 @@
 
 #=========================================================================================================================
 [🐍INSTALACIONES]::
-
-# instalaciones 
-apt update
-apt upgrade -y
-
-## ssh
-## desde la consola del contenedor a través de proxmox
-# Amplio tiempo de ssh y deshabilitar la suspensión
-systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-
-# Realizo unos cambios en el archivo de configuración
-nano /etc/ssh/sshd_config
-----------------------------------------------------------------------------
-    Port 22
-    PasswordAuthentication yes
-    PermitRootLogin yes
-----------------------------------------------------------------------------
-
-# Inicializo el servicio y lo habilito para inicio de la sesión
-systemctl start sshd
-systemctl enable sshd
-systemctl status sshd
-
-# reinicio
-reboot now
-
-# creo una carpeta en el contenedor e instalo el script
-mkdir /ce-500 && cd /ce-500
-apt install vim -y
-vim script-00.sh
-# i - (shift + botón derecho):
---------------------------------------------------------------------------------------
-    # código de /SCRIPTS/script-00.sh de este github
---------------------------------------------------------------------------------------
-
-# doy permisos y hago la instalación
-chmod +x script-00.sh
-./script-00.sh
-source ~/.bashrc
-# 🧠 Greenbone es una plataforma de gestión de vulnerabilidades que ofrece herramientas para realizar escaneos de seguridad.
-# 🐧 Utilizo greenbone para escanear toda mi red en busca de vulnerabilidades que corregir.
-
-
-#=========================================================================================================================
-[🐍INSTALACIONES]::
 ## ⚠️ Esta instalación la he hecho ordenada corrigiendo los problemas con la documentación oficial en debian
 ## ⚠️ antes de nada acosejo investigar si dispongo de los recursos necesarios porque aunque se inicie la interface no va poder analizar nada
 ## 🚨 el error típico ante falta de recursos es que cuando creas un Task se queda en : ❌ Interrupted at 0 %
