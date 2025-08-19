@@ -5,3 +5,8 @@ bash -c "$(wget https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/m
 
 # ejecuto script de creación de usuario admin
 bash -c "$(wget https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/main/user-UID0.sh -qO -)"
+
+...
+
+# este script genera documentación básica del servidor tras su configuración, manteniéndola organizada en un repositorio seguro
+https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/main/imp-srv.sh
