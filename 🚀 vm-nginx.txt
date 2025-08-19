@@ -2,59 +2,18 @@
 # 🐧 Esta máquina la voy a utilizar como honeypot y me va a registrar decoys, simulación de rutas y gestión con mongodb (sin paquetes externos).
 #=========================================================================================================================
 [🚀WHITE WHALE]::
-# Documentación configurar Node 		: https://www.digitalocean.com/community/tutorials/how-to-set-up-a-node-js-application-for-production-on-ubuntu-20-04-es?
-# Documentación configurar Nginx 		: https://carlosazaustre.es/como-configurar-nginx-con-node-js-en-produccion?
-# Documentación certificado 			: https://medium.com/@ali_97803/deploy-de-una-app-de-express-js-con-github-actions-usando-nginx-en-modo-https-855126f93164#82a4
-# Documentación no-oficial certificados		: https://rlodeiro.info/blog/certificado-autofirmado/
-# Documentación oficial de Lets Encrypt		: https://letsencrypt.org/
-# Documentación OpenSSL				: https://docs.openssl.org/3.0/man7/migration_guide/
-# Documentación no-oficial MAC			: https://es.linux-console.net/?p=8489
-# Documentación de mongodb	   		: https://www.mongodb.com/docs/
-#						: https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-debian/
-#						: https://www.mongodb.com/docs/manual/reference/configuration-options/#systemlog
-#						: https://www.mongodb.com/docs/manual/
+# Documentación configurar Node 				: https://www.digitalocean.com/community/tutorials/how-to-set-up-a-node-js-application-for-production-on-ubuntu-20-04-es?
+# Documentación configurar Nginx 				: https://carlosazaustre.es/como-configurar-nginx-con-node-js-en-produccion?
+# Documentación certificado 					: https://medium.com/@ali_97803/deploy-de-una-app-de-express-js-con-github-actions-usando-nginx-en-modo-https-855126f93164#82a4
+# Documentación no-oficial certificados			: https://rlodeiro.info/blog/certificado-autofirmado/
+# Documentación oficial de Lets Encrypt			: https://letsencrypt.org/
+# Documentación OpenSSL							: https://docs.openssl.org/3.0/man7/migration_guide/
+# Documentación no-oficial MAC					: https://es.linux-console.net/?p=8489
+# Documentación de mongodb	   					: https://www.mongodb.com/docs/
+#												: https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-debian/
+#												: https://www.mongodb.com/docs/manual/reference/configuration-options/#systemlog
+#												: https://www.mongodb.com/docs/manual/
 
-
-#=========================================================================================================================
-[🚀INSTALACIONES]::
-# instalaciones 
-apt update
-apt upgrade -y
-
-## ssh
-## desde la consola del contenedor a través de proxmox
-# Amplio tiempo de ssh y deshabilitar la suspensión
-systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-
-# Realizo unos cambios en el archivo de configuración
-nano /etc/ssh/sshd_config
-----------------------------------------------------------------------------
-    Port 22
-    PasswordAuthentication yes
-    PermitRootLogin yes
-----------------------------------------------------------------------------
-
-# Inicializo el servicio y lo habilito para inicio de la sesión
-systemctl start sshd
-systemctl enable sshd
-systemctl status sshd
-
-# reinicio
-reboot now
-
-# creo una carpeta en el contenedor e instalo el script
-mkdir /ce-500 && cd /ce-500
-apt install vim -y
-vim script-00.sh
-# i - (shift + botón derecho):
---------------------------------------------------------------------------------------
-    # código de /SCRIPTS/script-00.sh de este github
---------------------------------------------------------------------------------------
-
-# doy permisos y hago la instalación
-chmod +x script-00.sh
-./script-00.sh
-source ~/.bashrc
 
 #=========================================================================================================================
 [🚀SERVIDOR NGINX EXPRESS.JS]:
