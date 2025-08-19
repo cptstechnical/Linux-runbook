@@ -23,6 +23,9 @@ systemctl status sshd
 # reinicio
 reboot now
 
-# instalo el script directamente desde mi repositorio público scripts
+# creo la carpeta principal de instalaciones
 mkdir /aptelliot && cd /aptelliot
+
+# ejecuto el archivo sin descargarlo a ser posible
+# wget https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/main/script-00.sh
 bash -c "$(wget https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/main/script-00.sh -qO -)"
