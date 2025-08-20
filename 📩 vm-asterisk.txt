@@ -1,1 +1,0 @@
-# en la configuracion quieor hacer un correo de spam el cual tenga una carpeta donde pueda enviar un pdf malisioco y con un script y un cron evalue ese malwere lo estudio y lo borre
