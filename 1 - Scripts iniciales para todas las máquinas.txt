@@ -8,8 +8,5 @@ bash -c "$(wget https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/m
 
 ...
 
-# para mostrar comandos de ayuda
-bash -c "$(wget https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/main/ayuda.sh -qO -)"
-
 # este script genera una documentación básica del servidor tras su configuración, manteniéndola organizada en un repositorio seguro
 https://raw.githubusercontent.com/aptelliot/scripts/refs/heads/main/imp-srv.sh
