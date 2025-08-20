@@ -1,1 +1,13 @@
+===============================================================================================================================================
+- IVR (Interactive Voice Response) : es un sistema que permite a los usuarios interactuar con la central telefónica mediante respuestas de voz o pulsaciones en el teclado del teléfono (DTMF).
+- ACD (Automatic Call Distributor) : distribuye automáticamente llamadas entrantes a agentes disponibles según reglas predefinidas.
+- CTI (Computer Telephony Integration) : permite que un CRM o software muestre información del cliente cuando se recibe la llamada.
+- DTMF (Dual-Tone Multi-Frequency) : tonos generados por el teclado del teléfono.
+- MOH (Music On Hold) : Música o mensajes reproducidos mientras la llamada espera en cola o en el IVR.
+- IVR Multinivel / Multi-Level IVR: Menús jerárquicos: el usuario navega por varios niveles de opciones.
+- SIP (Session Initiation Protocol) : protocolo de señalización usado por Asterisk para establecer, modificar y terminar llamadas VoIP.
+- VXML (Voice eXtensible Markup Language) : lenguaje de marcado para crear aplicaciones de voz interactivas.
+- TTS (Text-To-Speech) : permite al IVR leer texto dinámico en voz en lugar de usar grabaciones.
+- ASR (Automatic Speech Recognition) : reconocimiento de voz para que el IVR entienda comandos hablados, no solo teclas.
 
+===============================================================================================================================================
