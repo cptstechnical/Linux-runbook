@@ -52,7 +52,7 @@ Description=Velociraptor Server
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/velociraptor --config /ce-500/server.config.yaml frontend
+ExecStart=/usr/local/bin/velociraptor --config /aptelliot/server.config.yaml frontend
 Restart=always
 User=root
 
@@ -61,7 +61,7 @@ WantedBy=multi-user.target
 -------------------------------------------------------------------
 
 # modifico el archivo 
-vim /ce-500/server.config.yaml
+vim /aptelliot/server.config.yaml
 -------------------------------------------------------------------
 # dentro de larchivo busco los 127.0.0.1 y los cambio por 0.0.0.0
 # esto hace que se pueda escucha fuera de la máquina (dentro del mismo host)
@@ -83,8 +83,8 @@ https://<IP_SERVIDOR_LINUX>:8889
 
 # velociraptor necesita crear un agente para conectar con el dispositivo cliente
 # como anteriormente ya he creado la configuración del cliente compruebo que tengo el archivo 
-find /ce-500/client.config.yaml
-    # /ce-500/client.config.yaml
+find /aptelliot/client.config.yaml
+    # /aptelliot/client.config.yaml
 
 # genero el binario que me va a generar el archivo de instalación según la distribución de linux o el s.o
 # en mi caso lo voy hacer para un servicor debian
@@ -93,10 +93,10 @@ velociraptor --config client.config.yaml debian client
 
 # migro el archivo desde la máquina principal 
 exit
-cp /var/lib/lxc/vm-velociraptor/rootfs/ce-500/velociraptor_client_0.74.1_amd64.deb /var/lib/lxc/vm-apache/rootfs/ce-500/
+cp /var/lib/lxc/vm-velociraptor/rootfs/aptelliot/velociraptor_client_0.74.1_amd64.deb /var/lib/lxc/vm-apache/rootfs/aptelliot/
 
 # entro en la máquina del agente (que en este caso es vm-apache) e instalo el paquete
-cd /ce-500
+cd /aptelliot
 sudo dpkg -i velociraptor_client_0.74.1_amd64.deb
 
 # cambio la configuración
