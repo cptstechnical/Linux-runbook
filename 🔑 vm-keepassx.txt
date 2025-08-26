@@ -3,7 +3,7 @@
 # 🐧 Lo voy a utilizar para gestión de contraseñas, como alternativa de control a gestores de contraseñas online.
 
 #=========================================================================================================================
-[🔑 ce-500]::
+[🔑 aptelliot]::
 # Documentación oficial               : https://keepassxc.org/docs/KeePassXC_UserGuide#_openssh_agent_on_linux
 
 #=========================================================================================================================
