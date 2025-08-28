@@ -1018,6 +1018,10 @@ TRUNCATE TABLE nvts, cves, RESTART IDENTITY;
 
 
 
+# TRUNCATE alert_condition_data, alert_condition_data_trash, alert_event_data, alert_event_data_trash, alert_method_data, alert_method_data_trash, alerts, alerts_trash, auth_cache, config_preferences, config_preferences_trash, configs, configs_trash, credentials, credentials_data, credentials_trash, credentials_trash_data, deprecated_feed_data, filters, filters_trash, group_users, group_users_trash, groups, groups_trash, host_details, host_identifiers, host_max_severities, host_oss, hosts, meta, notes, notes_trash, nvt_preferences, nvt_selectors, nvts, oss, overrides, overrides_trash, permissions, permissions_get_tasks, permissions_trash, port_lists, port_lists_trash, port_ranges, port_ranges_trash, report_config_params, report_config_params_trash, report_configs, report_configs_trash, report_counts, report_format_param_options, report_format_param_options_trash, report_format_params, report_format_params_trash, report_formats, report_formats_trash, report_host_details, report_hosts, reports, result_nvt_reports, result_nvts, results, results_trash, role_users, role_users_trash, roles, roles_trash, scanners, scanners_trash, schedules, schedules_trash, settings, tag_resources, tag_resources_trash, tags, tags_trash, targets, targets_login_data, targets_trash, targets_trash_login_data, task_alerts, task_files, task_preferences, tasks, ticket_results, ticket_results_trash, tickets, tickets_trash, tls_certificate_locations, tls_certificate_origins, tls_certificate_sources, tls_certificates, users, vt_refs, vt_severities RESTART IDENTITY;                  
+
+
+
 
 
 
