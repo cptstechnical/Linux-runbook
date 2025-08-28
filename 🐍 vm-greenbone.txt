@@ -978,15 +978,87 @@ df -h
 	# para comprobar la base de datos sin entrar en ella 
 	sudo du -sh /var/lib/postgresql
 
-# No debes borrar la base de datos de esa manera, ya que la corrupción de datos es casi segura. La única forma segura de eliminar la información que llena el disco es a través de la interfaz de Greenbone.
+# No debes borrar la base de datos, ya que la corrupción de datos es casi segura. La única forma segura de eliminar la información que llena el disco es a través de la interfaz de Greenbone.
 # es decir:
 #	- parar escaneador de openvas para que deje de escanear y siga ocupando almacenamiento (systemctl stop openvasd)
+sudo systemctl stop openvasd
+
 #	- borrar archivos (como por ejemplo el de los logs), o buscar otra manera de conseguir más almacenamiento
+# en mi caso voy a borrar los archivos compilados de la instalación, pero antes hago una copia en otro servidor debian
+cd $HOME/
+ls
+tar -czvf install.tar.gz $HOME/install
+scp -r install.tar.gz isaac@<ip-servidor-b>:/
+rm -rf install
+sudo systemctl restart postgresql
+sudo systemctl restart gvmd
+sudo systemctl restart gsad
+
 # 	- volver a entrar en greenbone y desde dentro del dashboard purgar la base de datos
+# entro vía web
+Scan > reports > delete > (elimino todos o casi todos)
+
+# Aunque borres datos de una base de datos, el archivo en el disco no se hace más pequeño automáticamente. El espacio solo se marca como vacío. El comando VACUUM FULL reorganiza la base de datos para recuperar ese espacio vacío y devolverlo al disco duro.
+# compacta la base de datos
+# vuelvo a la terminal y lanzo el siguiente comando
+# 
+systemctl stop gvmd
+sudo -u postgres psql gvmd -c 'VACUUM FULL;'
+
+# esto sirve para la eliminación de task pero aún así las configuraciones, host, feeds...etc seguirán permaneciendo en la base de datos de greenbone...
+sudo systemctl stop gvmd
+sudo systemctl stop openvasd
+
+# me conecto a la base de datos para borrar los registros de las bases de datos de los feeds 
+sudo -u postgres psql -d gvmd
+# para ver todas las tablas 
+\dt+
+TRUNCATE TABLE nvts, cves, RESTART IDENTITY;
+\q
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # si te a ocurrido este fallo es considerable agregar un minimo de almacenamiento de task o si ya existia uno reducir esa secuencia.
 
 
 
+
+
+
+
+
+
+sudo systemctl restart postgresql
+sudo systemctl restart gvmd
+sudo systemctl restart gsad
+sudo systemctl stop openvasd
+
+sudo systemctl status ospd-openvas
+sudo systemctl status gvmd
+sudo systemctl status gsad
+sudo systemctl status openvasd
 
 
