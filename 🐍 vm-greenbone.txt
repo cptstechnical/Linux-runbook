@@ -979,8 +979,12 @@ df -h
 	sudo du -sh /var/lib/postgresql
 
 # No debes borrar la base de datos de esa manera, ya que la corrupción de datos es casi segura. La única forma segura de eliminar la información que llena el disco es a través de la interfaz de Greenbone.
+# es decir:
+#	- parar escaneador de openvas para que deje de escanear y siga ocupando almacenamiento (systemctl stop openvasd)
+#	- borrar archivos (como por ejemplo el de los logs), o buscar otra manera de conseguir más almacenamiento
+# 	- volver a entrar en greenbone y desde dentro del dashboard purgar la base de datos
 
-
+# si te a ocurrido este fallo es considerable agregar un minimo de almacenamiento de task o si ya existia uno reducir esa secuencia.
 
 
 
