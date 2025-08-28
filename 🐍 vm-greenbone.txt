@@ -811,7 +811,7 @@ Administration > Feed Status
 	# El tiempo aproximado en una maquina virtual: 6 Horas 
 		[NVT]:			10-30 minutos	
 		[CERT]:	 		30 min - 24 horas		
-		[GVMD_DATA]: 		30 min y 2 horas			
+		[GVMD_DATA]: 	30 min y 2 horas			
 		[ESCAP]:		30 min - 72 horas
 
 	# Error:
