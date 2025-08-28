@@ -947,3 +947,42 @@ free -h
 
 # para que el swapfile se active en cada arranque, añade esta línea a /etc/fstab
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+
+#=========================================================================================================================
+[🐍FALLO LOGIN]::
+# si al intentar loguearme me da el siguiente error::
+***************************************
+The Greenbone Vulnerability Manager service is not responding. This could be due to system maintenance. Please try again later, check the system status, or contact your system administrator.
+***************************************
+
+# puede ser debido a varias razones una de ellas es que el cron que se encarga de actualizar los feeds haya fallado, para eso los actualizo manualmente
+
+## 1 - actualizo feeds manualmente
+/usr/local/bin/greenbone-feed-sync
+
+# si aún así sigue fallando descarto esta parte
+sudo systemctl status ospd-openvas
+sudo systemctl status gvmd		
+sudo systemctl status gsad
+sudo systemctl status openvasd
+
+## 2 - compruebo el almacenamiento
+# los servicios de Greenbone, como ya vimos, no pueden escribir nuevos archivos para completar la sincronización de las bases de datos de vulnerabilidades, lo que provoca su fallo
+df -h
+
+# compruebo el espacio de los archivos
+	# para comprobar que archivos son los que más estan ocupando puedo lanzar el siguiente comando
+	sudo du -h --max-depth=1 / | sort -rh | head -n 10
+	sudo du -h --max-depth=1 /var/lib | sort -rh | head -n 10
+	# para comprobar la base de datos sin entrar en ella 
+	sudo du -sh /var/lib/postgresql
+
+# No debes borrar la base de datos de esa manera, ya que la corrupción de datos es casi segura. La única forma segura de eliminar la información que llena el disco es a través de la interfaz de Greenbone.
+
+
+
+
+
+
+
