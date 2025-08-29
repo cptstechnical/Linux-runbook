@@ -978,8 +978,7 @@ df -h
 	# para comprobar la base de datos sin entrar en ella 
 	sudo du -sh /var/lib/postgresql
 
-# No debes borrar la base de datos, ya que la corrupción de datos es casi segura. La única forma segura de eliminar la información que llena el disco es a través de la interfaz de Greenbone.
-# es decir:
+# No debes borrar la base de datos, ya que la corrupción de datos es segura. La única forma segura de eliminar la información que llena el disco es a través de la interfaz de Greenbone.
 #	- parar escaneador de openvas para que deje de escanear y siga ocupando almacenamiento (systemctl stop openvasd)
 sudo systemctl stop openvasd
 
@@ -1015,6 +1014,11 @@ sudo -u postgres psql -d gvmd
 \dt+
 TRUNCATE TABLE nvts, cves, RESTART IDENTITY;
 \q
+
+
+
+
+
 
 
 
