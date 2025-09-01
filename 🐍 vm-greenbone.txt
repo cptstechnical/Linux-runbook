@@ -907,6 +907,7 @@ crontab -e
 # creo un script que sirva de mantenimiento del servidor:
 vim /usr/bin/greenbone-system
 ------------------------------------------------------------------------
+
 #!/bin/bash
 
 YELLOW='\033[1;33m'
@@ -980,6 +981,13 @@ case $opcion in
     echo "Limpiando registros vacíos y optimizando DB..."
     sudo -u postgres psql -d "$DB_NAME" -U "$DB_USER" -c 'VACUUM FULL;'
     echo "VACUUM FULL realizado."
+
+    # 4 Reinicio servicios
+    systemctl restart postgresql
+    systemctl restart gvmd
+    systemctl restart gsad
+    systemctl restart ospd-openvas
+    systemctl restart openvasd
     ;;
 
   2)
@@ -1036,7 +1044,6 @@ case $opcion in
   *)
     echo "Opción inválida"
     ;;
-esac
 ------------------------------------------------------------------------
 
 chmod +x /usr/bin/greenbone-system
