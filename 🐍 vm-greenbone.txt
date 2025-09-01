@@ -797,12 +797,16 @@ iptables -L -n -v -t filter
 
 # 🔑 cambiar contraseña por defecto "admin" del usuario "admin" para la interface web
 gvmd --user=admin --new-password=Rengereg%768
+#sudo gvmd --create-user=paco --password='MiContraseñaSegura'
+sudo gvmd --get-users
+systemctl restart gvmd
 
 # 🔑 cambiar contraseña por defecto para la base de datos
 sudo -u postgres psql
-ALTER USER tu_usuario WITH PASSWORD 'nueva_contraseña';
+\du
+ALTER USER gvm WITH PASSWORD 'MiNuevaPass123!';
 \q
-systemctl restart gvm
+systemctl restart gvmd
 
 #=========================================================================================================================
 [🐍ENTORNO WEB]::
@@ -927,11 +931,11 @@ else
     clear
     cat << 'EOF'
 
-  ________                           ___.                                                  __
- /  _____/______   ____   ____   ____\_ |__   ____   ____   ____     _________.__. _______/  |_  ____   _____
-/   \  __\_  __ \_/ __ \_/ __ \ /    \| __ \ /  _ \ /    \_/ __ \   /  ___<   |  |/  ___/\   __\/ __ \ /     \
-\    \_\  \  | \/\  ___/\  ___/|   |  \ \_\ (  <_> )   |  \  ___/   \___ \ \___  |\___ \  |  | \  ___/|  Y Y  \
- \______  /__|    \___  >\___  >___|  /___  /\____/|___|  /\___  > /____  >/ ____/____  > |__|  \___  >__|_|  /
+  _________                           ___.                                                  __
+ /   _____/______   ____   ____   ____\_ |__   ____   ____   ____     _________.__. _______/  |_  ____   _____
+/    \  __\_  __ \_/ __ \_/ __ \ /    \| __ \ /  _ \ /    \_/ __ \   /  ___<   |  |/  ___/\   __\/ __ \ /     \
+\     \_\  \  | \/\  ___/\  ___/|   |  \ \_\ (  <_> )   |  \  ___/   \___ \ \___  |\___ \  |  | \  ___/|  Y Y  \
+ \_______  /__|    \___  >\___  >___|  /___  /\____/|___|  /\___  > /____  >/ ____/____  > |__|  \___  >__|_|  /
         \/            \/     \/     \/    \/            \/     \/       \/ \/         \/            \/      \/
                                             Script de mantenimiento para Greenbone
 
@@ -955,9 +959,11 @@ EOF
     echo "4) TRUNCATE * hosts (hosts, host_details, host_oss, host_identifiers)"
     echo "5) TRUNCATE * tasks (tasks, task_preferences, task_files, task_alerts)"
     echo "6) TRUNCATE * targets (targets, targets_login_data)"
-    echo -e "7) Limpiar registros vacíos y optimizar DB (VACUUM FULL)"${NC}
-    echo -e "${RED}8) Borrar valores de feeds en la DB (nvts, vt_refs, vt_severities, overrides, nvt_preferences, deprecated_feed_data)" ${NC}
-    read -p "Selecciona una opción (1-8): " opcion
+    echo -e "7) Limpiar registros vacíos y optimizar DB (VACUUM FULL)"
+    echo -e "8) Reiniciar todos los servicios y sincronizadores de Greenbone (systemctls y greenbone-*)"${NC}
+    echo -e "${RED}9) TRUNCATE * Borrar valores de feeds en la DB (nvts, vt_refs, vt_severities, overrides, nvt_preferences, deprecated_feed_data)" ${NC}
+    echo -e "${RED}10) TRUNCATE * db.${DB_NAME} excepto el usuario" ${NC}
+    read -p "Selecciona una opción (1-10): " opcion
 fi
 
 case $opcion in
@@ -967,7 +973,7 @@ case $opcion in
     # 1 Borrar partes físicas de los feeds con más de 15 días
     echo "Borrando partes físicas de los feeds con más de 15 días..."
     systemctl stop gvmd ospd-openvas
-    find /var/lib/gvm/scap-data/* /var/lib/gvm/cert-data/* -mtime +15 -exec rm -rf {} \;
+    find /var/lib/gvm/scap-data/* /var/lib/gvm/cert-data/* /var/lib/openvas/plugins/* -mtime +15 -exec rm -rf {} \;
     systemctl start gvmd ospd-openvas
     echo "Archivos físicos de los feeds con más de 15 días eliminados (/var/lib/gvm/scap-data/* y /var/lib/gvm/cert-data/*)."
 
@@ -1038,7 +1044,10 @@ echo "Registros borrados de más de 15 días (reports, report_hosts, report_host
   2)
     echo "Borrando partes físicas de los feeds..."
     systemctl stop gvmd ospd-openvas
-    rm -rf /var/lib/gvm/scap-data/* /var/lib/gvm/cert-data/*
+    # [x]: /var/lib/gvm/scap-data/ - CVEs, CPEs, OVAL. 55 
+    # [x]: /var/lib/gvm/cert-data/ - CERT-Bund, DFN-CERT... 56 
+    # [x]: /var/lib/gvm/plugins/ - NVTs (scripts NASL), nasl-data
+    rm -rf /var/lib/gvm/scap-data/* /var/lib/gvm/cert-data/* /var/lib/openvas/plugins/*
     systemctl start gvmd ospd-openvas
     echo "Hecho."
     ;;
@@ -1082,18 +1091,55 @@ echo "Registros borrados de más de 15 días (reports, report_hosts, report_host
     ;;
 
   8)
+    /usr/local/bin/greenbone-feed-sync
+    /usr/bin/greenbone-nvt-sync
+    /usr/bin/greenbone-scapdata-sync
+    /usr/bin/greenbone-certdata-sync
+    echo "Sincronizadores reiniciados (greenbone-feed-sync, greenbone-nvt-sync, greenbone-scapdata-sync, greenbone-certdata-sync) ."
+    systemctl restart postgresql
+    systemctl restart gvmd
+    systemctl restart gsad
+    systemctl restart ospd-openvas
+    systemctl restart openvasd
+    echo "Servicios reiniciados (postgresql, gvmd, gsad, ospd-openvas y openvasd)."
+    ;;
+
+  9)
     echo "Borrando tablas de feeds en la DB..."
     echo -e "${RED}🚨 Al borrar los feeds de la base de datos cambiarán sus IDs y los reports antiguos quedarán desalineados."
     echo -e "${RED}🚨 Ejecute esta opción únicamente para eliminar por completo todos los datos de Greenbone de manera excepcional." ${NC}
     read -p "¿Estás seguro de que quieres eliminar los feeds de la base de datos? Esto no se puede deshacer (s/n): " confirm
     if [[ "$confirm" =~ ^[Ss]$ ]]; then
-        psql -U $DB_USER -d $DB_NAME -c "TRUNCATE nvts, vt_refs, vt_severities, overrides, nvt_preferences, deprecated_feed_data RESTART IDENTITY CASCADE;"
+        sudo -u $DB_USER psql -d $DB_NAME -c "
+        TRUNCATE nvts, vt_refs, vt_severities, overrides, nvt_preferences, deprecated_feed_data RESTART IDENTITY CASCADE;
+        "
+        greenbone-feed-sync
         echo "Hecho."
     else
         echo "Operación cancelada."
     fi
     ;;
 
+  10)
+    echo "Borrando todas las tablas en la DB..."
+    echo -e "${RED}🚨 Al borrar todas las tablas, el sistema se reiniciará como una instalación nueva y limpia."
+    echo -e "${RED}🚨 Las tablas de los usuarios permanecerá como siempre para poder acceder de manera habitual." ${NC}
+    read -p "¿Estás seguro de que quieres eliminar todas las filas de las tablas expecto feeds? Esto no se puede deshacer (s/n): " confirm
+    if [[ "$confirm" =~ ^[Ss]$ ]]; then
+        # Generar lista de tablas excluyendo las críticas
+        tables=$(sudo -u $DB_USER psql -d $DB_NAME -t -c "
+        SELECT string_agg('\"' || tablename || '\"', ', ')
+        FROM pg_tables
+        WHERE schemaname='public'
+        AND tablename NOT IN ('users', 'roles', 'user_roles', 'user_settings');
+        ")
+
+        # Ejecutar TRUNCATE en todas las tablas obtenidas
+        sudo -u $DB_USER psql -d $DB_NAME -c "TRUNCATE $tables RESTART IDENTITY CASCADE;"
+    else
+        echo "Operación cancelada."
+    fi
+    ;;
   *)
     echo "Opción inválida"
     ;;
