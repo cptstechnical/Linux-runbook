@@ -907,15 +907,13 @@ crontab -e
 # creo un script que sirva de mantenimiento del servidor:
 vim /usr/bin/greenbone-system
 ------------------------------------------------------------------------
-
 #!/bin/bash
-
 YELLOW='\033[1;33m'
 NC='\033[0m'
 RED='\033[1;31m'
 
 DB_NAME="gvmd"
-DB_USER="gvm"
+DB_USER="postgres"
 
 # Permitir ejecutar opción directamente por parámetro (para cron)
 if [ -n "$1" ]; then
@@ -946,7 +944,7 @@ EOF
     echo -e "${YELLOW}===================================================================================================================="
     echo " Menu de mantenimiento GVM"
     echo "===================================================================================================================="
-    echo "1) Modo mantenimiento automático (limpieza de feeds físicos, reports y DB > 30 días)"
+    echo "1) Modo mantenimiento automático (limpieza de feeds físicos, reports y DB > 15 días)"
     echo "2) Borrar archivos físicos de los feeds (/var/lib/gvm/scap-data, cert-data, nasl, etc.)"
     echo "3) Borrar reports (alerts, results, reports, report_hosts, report_host_details, report_format_*)"
     echo "4) Borrar hosts"
@@ -959,23 +957,65 @@ fi
 
 case $opcion in
   1)
-    echo "Modo mantenimiento automático (elementos con más de 30 días)..."
+    echo "Modo mantenimiento automático (elementos con más de 15 días)..."
 
-    # 1 Borrar partes físicas de los feeds con más de 30 días
-    echo "Borrando partes físicas de los feeds con más de 30 días..."
+    # 1 Borrar partes físicas de los feeds con más de 15 días
+    echo "Borrando partes físicas de los feeds con más de 15 días..."
     systemctl stop gvmd ospd-openvas
-    find /var/lib/gvm/scap-data/* /var/lib/gvm/cert-data/* -mtime +30 -exec rm -rf {} \;
+    find /var/lib/gvm/scap-data/* /var/lib/gvm/cert-data/* -mtime +15 -exec rm -rf {} \;
     systemctl start gvmd ospd-openvas
     echo "Archivos físicos de los feeds eliminados (/var/lib/gvm/scap-data/* y /var/lib/gvm/cert-data/*)."
 
-    # 2 Borrar reports con más de 30 días
-    echo "Borrando reports con más de 30 días..."
-    psql -U $DB_USER -d $DB_NAME -c "DELETE FROM reports WHERE create_time < NOW() - INTERVAL '30 days';"
-    psql -U $DB_USER -d $DB_NAME -c "DELETE FROM report_hosts WHERE report_id NOT IN (SELECT id FROM reports);"
-    psql -U $DB_USER -d $DB_NAME -c "DELETE FROM report_host_details WHERE report_id NOT IN (SELECT id FROM reports);"
-    psql -U $DB_USER -d $DB_NAME -c "DELETE FROM results WHERE report_id NOT IN (SELECT id FROM reports);"
-    psql -U $DB_USER -d $DB_NAME -c "DELETE FROM alerts WHERE report_id NOT IN (SELECT id FROM reports);"
-    echo "Registros borrados de más de 30 días (reports, report_hosts, report_host_details, results, alerts)."
+    # 2 Borrar reports con más de 15 días
+    echo "Borrando reports con más de 15 días..."
+    sudo -u $DB_USER psql -d $DB_NAME -c "
+-- 1 Borrar resultados de reports antiguos (trash y activos)
+DELETE FROM results_trash WHERE report IN (SELECT id FROM reports WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '15 days')));
+
+-- 2 Borrar detalles de hosts asociados a reports antiguos
+DELETE FROM report_host_details
+WHERE report_host IN (
+    SELECT id FROM report_hosts
+    WHERE report IN (
+        SELECT id FROM reports WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '15 days'))
+    )
+);
+
+-- 3 Borrar report_hosts de reports antiguos
+DELETE FROM report_hosts
+WHERE report IN (
+    SELECT id FROM reports WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '15 days'))
+);
+
+-- 4 Borrar resultados de reports antiguos (trash y activos)
+DELETE FROM results_trash
+WHERE report IN (
+    SELECT id FROM reports WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '15 days'))
+);
+
+DELETE FROM results
+WHERE report IN (
+    SELECT id FROM reports WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '15 days'))
+);
+
+-- 5 Borrar alerts de reports antiguos
+DELETE FROM alert_condition_data
+WHERE alert IN (SELECT id FROM alerts WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '15 days')));
+
+DELETE FROM alert_event_data
+WHERE alert IN (SELECT id FROM alerts WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '15 days')));
+
+DELETE FROM alert_method_data
+WHERE alert IN (SELECT id FROM alerts WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '15 days')));
+
+DELETE FROM alerts
+WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '15 days'));
+
+-- 6 Finalmente, borrar los reports
+DELETE FROM reports
+WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '15 days'));
+"
+echo "Registros borrados de más de 15 días (reports, report_hosts, report_host_details, results, alerts)."
 
     # 3 Limpiar registros vacíos y optimizar DB
     echo "Limpiando registros vacíos y optimizando DB..."
@@ -1044,6 +1084,7 @@ case $opcion in
   *)
     echo "Opción inválida"
     ;;
+esac
 ------------------------------------------------------------------------
 
 chmod +x /usr/bin/greenbone-system
@@ -1052,9 +1093,30 @@ crontab -e
 ------------------------------------------------------------------------
 ...
 # Primer viernes de cada mes a la 1:00 AM
-0 1 1-7 * 5 /usr/bin/greenbone-system 1 >> /var/log/greenbone-system.log 2>&1
+ 0 23 1-7 * 5 /usr/bin/greenbone-system 1 >> /var/log/greenbone-system.log 2>&1
 ...
 ------------------------------------------------------------------------
+
+#=========================================================================================================================
+[🐍CRONTAB COMPLETO]::
+# crontab completo
+crontab -e
+------------------------------------------------------------------------
+00 6 * * * /usr/sbin/ntpdate -s hora.roa.es
+00 1 * * * /usr/local/bin/greenbone-feed-sync >> /var/log/gvm-feed.log 2>&1
+00 2 * * * /usr/bin/greenbone-nvt-sync >> /var/log/gvm_nvt.log 2>&1
+00 3 * * * /usr/bin/greenbone-scapdata-sync >> /var/log/gvm_scap.log 2>&1
+00 4 * * * /usr/bin/greenbone-certdata-sync >> /var/log/gvm_feed.log 2>&1
+00 23 1-7 * 5 /usr/bin/greenbone-system 1 >> /var/log/greenbone-system.log 2>&1
+------------------------------------------------------------------------
+
+# 1 - Sincroniza la hora del sistema con el servidor NTP oficial (hora.roa.es) todos los días a las 06:00  
+# 2 - Actualiza el feed general de Greenbone todos los días a la 01:00  
+# 3 - Actualiza los NVT (Network Vulnerability Tests) todos los días a las 02:00  
+# 4 - Actualiza la base de datos SCAP (Security Content Automation Protocol) todos los días a las 03:00  
+# 5 - Actualiza la base de datos CERT (vulnerabilidades y avisos de seguridad) todos los días a las 04:00  
+# 6 - Ejecuta el script de mantenimiento automático (limpieza de elementos con más de quince días) el primer viernes del mes entre los días 1 y 7 a las 23:00  
+
 
 #=========================================================================================================================
 #=========================================================================================================================
