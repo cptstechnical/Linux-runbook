@@ -832,7 +832,6 @@ watch -n 5 'du -sh /var/lib/gvm/scap-data/* /var/lib/openvas/plugins /var/lib/no
 prev=0; while true; do curr=$(du -sb /var/lib/gvm/scap-data /var/lib/gvm/cert-data /var/lib/gvm/data-objects/gvmd /var/lib/openvas/plugins /var/lib/notus 2>/dev/null | awk '{s+=$1} END {print s}'); if [ "$curr" != "$prev" ]; then echo "$(date) ⚙️ Cambio detectado → $curr bytes"; prev=$curr; fi; sleep 5; done
 
 
-
 #=========================================================================================================================
 [🐍ENTORNO WEB CON NVT CERT GVMD_DATA SCAP CARGADOS]::
 ## 👍 si todo funciona bien, voy a  analizar la red de manera automática
@@ -875,6 +874,38 @@ Scan > Tasks > New Task
 selecciona el scan config (ej. Full and Fast)
 	> ...
 	> Schedule: [Schedule 7:00]: Weekly	[ ] Once 	# Asegúrate de que "Once" NO esté activado, o se ignorará la recurrencia.
+
+#=========================================================================================================================
+[🐍SOLUCIÓN PARA EL PROBELMA DE ALMACENAMIENTO]::
+# Hay que entender que los feeds de las bases de datos de greenbone se van a estasr actualizando continuamente y esto hace que el almacenamiento se llene
+# además, también se puede llenar por los valores del escaner como exceso de reports etc
+# creo un cron que actualice de manera automática los feeds, todos los dias a la 1:00
+crontab -e
+------------------------------------------------------------------------
+00 6 * * * /usr/sbin/ntpdate -s hora.roa.es
+0 1 * * * /usr/local/bin/greenbone-feed-sync >> /var/log/greenbone-feed.log 2>&1
+------------------------------------------------------------------------
+
+# En Greenbone/GVM hay dos sitios distintos donde se guarda la información:
+#	- Feeds descargados (ficheros en disco):
+#		+ scap-data/ → CVEs, CPEs, OVAL, definiciones SCAP
+#		+ cert-data/ → Alertas y bulletins CERT.
+#		+ gvmd/ → Objetos que gvmd usa (scan configs, report formats, port lists).
+# 	- Base de datos PostgreSQL (gvmd DB):
+#		+ Cuando sincronizas (greenbone-feed-sync), gvmd importa esos ficheros a su base de datos PostgreSQL.
+#		+ Ahí es donde se indexan, relacionan con los resultados de tus escaneos y se enlazan CVEs ↔ Hosts ↔ Vulnerabilidades encontradas.
+#		+ También ahí se guardan tasks, targets, resultados de escaneo, reportes, usuarios, permisos, etc.
+
+# tablas de la base de datos que corresponden a los feeds:
+# 	nvts → 							(nvts, CERT-Bund Advisories, DFN-CERT Advisories) Contiene los Network Vulnerability Tests (NVTs) descargados desde el feed.
+# 	overrides / overrides_trash → 	(Overrides / ajustes) Overrides aplicados a NVTs (ajustes de severidad o comportamiento).
+# 	vt_refs → 						(CVEs / SCAP, CERT-Bund Advisories, DFN-CERT Advisories, ) Referencias de vulnerabilidades (CVE, BID, etc.) asociadas a los NVTs.
+# 	vt_severities → 				(CVEs / SCAP, ) Severidades asociadas a vulnerabilidades del feed.
+# 	nvt_preferences → 				Preferencias globales o específicas para NVTs.
+# 	deprecated_feed_data → 			Información de feeds obsoletos o retirados.
+
+# creo un script que sirva de mantenimiento del servidor:
+
 
 
 
@@ -951,24 +982,14 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 #=========================================================================================================================
 [🐍FALLO LOGIN]::
-# si al intentar loguearme me da el siguiente error::
+# ⚠️ si al intentar loguearme me da el siguiente error::
 ***************************************
 The Greenbone Vulnerability Manager service is not responding. This could be due to system maintenance. Please try again later, check the system status, or contact your system administrator.
 ***************************************
 
-# puede ser debido a varias razones una de ellas es que el cron que se encarga de actualizar los feeds haya fallado, para eso los actualizo manualmente
-
-## 1 - actualizo feeds manualmente
-/usr/local/bin/greenbone-feed-sync
-
-# si aún así sigue fallando descarto esta parte
-sudo systemctl status ospd-openvas
-sudo systemctl status gvmd		
-sudo systemctl status gsad
-sudo systemctl status openvasd
-
-## 2 - compruebo el almacenamiento
+# hay un 89% de posibilidades que sea debido al uso de almacenamiento en disco
 # los servicios de Greenbone, como ya vimos, no pueden escribir nuevos archivos para completar la sincronización de las bases de datos de vulnerabilidades, lo que provoca su fallo
+# esto provoca que ni si quiera te permita la lectura de base de datos impidiendo su lectura, para solucionar esto, hay que borrar almacenamiento y luego solucionarlo
 df -h
 
 # compruebo el espacio de los archivos
@@ -978,29 +999,32 @@ df -h
 	# para comprobar la base de datos sin entrar en ella 
 	sudo du -sh /var/lib/postgresql
 
-# No debes borrar la base de datos, ya que la corrupción de datos es segura. La única forma segura de eliminar la información que llena el disco es a través de la interfaz de Greenbone.
-#	- parar escaneador de openvas para que deje de escanear y siga ocupando almacenamiento (systemctl stop openvasd)
+# No debes borrar la base de datos, ya que la corrupción de datos es segura ya que se borra su estructura
+# La única forma segura de eliminar la información que llena el disco es a través de la interfaz de Greenbone:
+# 1 🐍 - parar escaneador de openvas para que deje de escanear y siga ocupando almacenamiento 
 sudo systemctl stop openvasd
 
-#	- borrar archivos (como por ejemplo el de los logs), o buscar otra manera de conseguir más almacenamiento
+# 2 🐍 - borrar archivos (como por ejemplo el de los feeds /var/lib/gvm), o buscar otra manera de conseguir más almacenamiento para poder loguearme
 # en mi caso voy a borrar los archivos compilados de la instalación, pero antes hago una copia en otro servidor debian
+#/source
+#/build
+#/install
 cd $HOME/
 ls
 tar -czvf install.tar.gz $HOME/install
-scp -r install.tar.gz isaac@<ip-servidor-b>:/
+scp -r install.tar.gz <usuario>@<ip-servidor-b>:/
 rm -rf install
 sudo systemctl restart postgresql
 sudo systemctl restart gvmd
 sudo systemctl restart gsad
 
-# 	- volver a entrar en greenbone y desde dentro del dashboard purgar la base de datos
+# 3 🐍 - volver a entrar en greenbone y desde dentro del dashboard purgar la base de datos para conseguir más almacenamiento
 # entro vía web
 Scan > reports > delete > (elimino todos o casi todos)
 
 # Aunque borres datos de una base de datos, el archivo en el disco no se hace más pequeño automáticamente. El espacio solo se marca como vacío. El comando VACUUM FULL reorganiza la base de datos para recuperar ese espacio vacío y devolverlo al disco duro.
 # compacta la base de datos
 # vuelvo a la terminal y lanzo el siguiente comando
-# 
 systemctl stop gvmd
 sudo -u postgres psql gvmd -c 'VACUUM FULL;'
 
@@ -1008,12 +1032,14 @@ sudo -u postgres psql gvmd -c 'VACUUM FULL;'
 sudo systemctl stop gvmd
 sudo systemctl stop openvasd
 
-# me conecto a la base de datos para borrar los registros de las bases de datos de los feeds 
+# me conecto a la base de datos para borrar los registros de las bases de datos de los feeds sobrantes o espacios vacios
 sudo -u postgres psql -d gvmd
 # para ver todas las tablas 
 \dt+
 TRUNCATE TABLE nvts, cves, RESTART IDENTITY;
 \q
+
+
 
 
 
