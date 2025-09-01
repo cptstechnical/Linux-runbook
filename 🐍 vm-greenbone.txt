@@ -953,21 +953,21 @@ EOF
     echo -e "${YELLOW}===================================================================================================================="
     echo " Menu de mantenimiento GVM"
     echo "===================================================================================================================="
-    echo "1) DELETE Modo mantenimiento automático (DELETE de feeds físicos, reports y DB > 15 días)"
-    echo "2) Borrar archivos físicos de los feeds (/var/lib/gvm/scap-data, cert-data, nasl, etc.)"
-    echo "3) TRUNCATE * reports (alerts, results, reports, report_hosts, report_host_details, report_format_*)"
-    echo "4) TRUNCATE * hosts (hosts, host_details, host_oss, host_identifiers)"
-    echo "5) TRUNCATE * tasks (tasks, task_preferences, task_files, task_alerts)"
-    echo "6) TRUNCATE * targets (targets, targets_login_data)"
-    echo -e "7) Limpiar registros vacíos y optimizar DB (VACUUM FULL)"
-    echo -e "8) Reiniciar todos los servicios y sincronizadores de Greenbone (systemctls y greenbone-*)"${NC}
-    echo -e "${RED}9) TRUNCATE * Borrar valores de feeds en la DB (nvts, vt_refs, vt_severities, overrides, nvt_preferences, deprecated_feed_data)" ${NC}
-    echo -e "${RED}10) TRUNCATE * db.${DB_NAME} excepto el usuario" ${NC}
+    echo "0) DELETE Modo mantenimiento automático (DELETE de feeds físicos, reports y DB > 15 días)"
+    echo "1) Borrar archivos físicos de los feeds (/var/lib/gvm/scap-data, cert-data, nasl, etc.)"
+    echo "2) TRUNCATE * reports (alerts, results, reports, report_hosts, report_host_details, report_format_*)"
+    echo "3) TRUNCATE * hosts (hosts, host_details, host_oss, host_identifiers)"
+    echo "4) TRUNCATE * tasks (tasks, task_preferences, task_files, task_alerts)"
+    echo "5) TRUNCATE * targets (targets, targets_login_data)"
+    echo -e "6) Limpiar registros vacíos y optimizar DB (VACUUM FULL)"
+    echo -e "7) Reiniciar todos los servicios y sincronizadores de Greenbone (systemctls y greenbone-*)"${NC}
+    echo -e "${RED}8) TRUNCATE * Borrar valores de feeds en la DB (nvts, vt_refs, vt_severities, overrides, nvt_preferences, deprecated_feed_data)" ${NC}
+    echo -e "${RED}9) TRUNCATE * db.${DB_NAME} excepto el usuario" ${NC}
     read -p "Selecciona una opción (1-10): " opcion
 fi
 
 case $opcion in
-  1)
+  0)
     echo "Modo mantenimiento automático (elementos con más de 15 días)..."
 
     # 1 Borrar partes físicas de los feeds con más de 15 días
@@ -1041,7 +1041,7 @@ echo "Registros borrados de más de 15 días (reports, report_hosts, report_host
     systemctl restart openvasd
     ;;
 
-  2)
+  1)
     echo "Borrando partes físicas de los feeds..."
     systemctl stop gvmd ospd-openvas
     # [x]: /var/lib/gvm/scap-data/ - CVEs, CPEs, OVAL. 55 
@@ -1052,7 +1052,7 @@ echo "Registros borrados de más de 15 días (reports, report_hosts, report_host
     echo "Hecho."
     ;;
 
-  3)
+  2)
     echo "Borrando reports..."
     sudo -u $DB_USER psql -d $DB_NAME -c "
     TRUNCATE alerts, results, reports, report_hosts, report_host_details, report_format_params, report_format_param_options, report_formats RESTART IDENTITY CASCADE;
@@ -1060,7 +1060,7 @@ echo "Registros borrados de más de 15 días (reports, report_hosts, report_host
     echo "Hecho."
     ;;
 
-  4)
+  3)
     echo "Borrando hosts..."
     sudo -u $DB_USER psql -d $DB_NAME -c "
     TRUNCATE hosts, host_details, host_oss, host_identifiers RESTART IDENTITY CASCADE;
@@ -1068,7 +1068,7 @@ echo "Registros borrados de más de 15 días (reports, report_hosts, report_host
     echo "Hecho."
     ;;
 
-  5)
+  4)
     echo "Borrando tasks..."
     sudo -u $DB_USER psql -d $DB_NAME -c "
     TRUNCATE tasks, task_preferences, task_files, task_alerts RESTART IDENTITY CASCADE;
@@ -1076,7 +1076,7 @@ echo "Registros borrados de más de 15 días (reports, report_hosts, report_host
     echo "Hecho."
     ;;
 
-  6)
+  5)
     echo "Borrando targets..."
     sudo -u $DB_USER psql -d $DB_NAME -c "
     TRUNCATE targets, targets_login_data RESTART IDENTITY CASCADE;
@@ -1084,13 +1084,13 @@ echo "Registros borrados de más de 15 días (reports, report_hosts, report_host
     echo "Hecho."
     ;;
 
-  7)
+  6)
     echo "Limpiando registros vacíos y optimizando DB..."
     sudo -u postgres psql -d "$DB_NAME" -U "$DB_USER" -c 'VACUUM FULL;'
     echo "Hecho."
     ;;
 
-  8)
+  7)
     /usr/local/bin/greenbone-feed-sync
     /usr/bin/greenbone-nvt-sync
     /usr/bin/greenbone-scapdata-sync
@@ -1104,7 +1104,7 @@ echo "Registros borrados de más de 15 días (reports, report_hosts, report_host
     echo "Servicios reiniciados (postgresql, gvmd, gsad, ospd-openvas y openvasd)."
     ;;
 
-  9)
+  8)
     echo "Borrando tablas de feeds en la DB..."
     echo -e "${RED}🚨 Al borrar los feeds de la base de datos cambiarán sus IDs y los reports antiguos quedarán desalineados."
     echo -e "${RED}🚨 Ejecute esta opción únicamente para eliminar por completo todos los datos de Greenbone de manera excepcional." ${NC}
@@ -1120,7 +1120,7 @@ echo "Registros borrados de más de 15 días (reports, report_hosts, report_host
     fi
     ;;
 
-  10)
+  9)
     echo "Borrando todas las tablas en la DB..."
     echo -e "${RED}🚨 Al borrar todas las tablas, el sistema se reiniciará como una instalación nueva y limpia."
     echo -e "${RED}🚨 Las tablas de los usuarios permanecerá como siempre para poder acceder de manera habitual." ${NC}
@@ -1152,7 +1152,7 @@ crontab -e
 ------------------------------------------------------------------------
 ...
 # Primer viernes de cada mes a la 1:00 AM
- 0 23 1-7 * 5 /usr/bin/greenbone-system 1 >> /var/log/greenbone-system.log 2>&1
+ 0 23 1-7 * 5 /usr/bin/greenbone-system 0 >> /var/log/greenbone-system.log 2>&1
 ...
 ------------------------------------------------------------------------
 
@@ -1166,7 +1166,7 @@ crontab -e
 00 2 * * * /usr/bin/greenbone-nvt-sync >> /var/log/gvm_nvt.log 2>&1
 00 3 * * * /usr/bin/greenbone-scapdata-sync >> /var/log/gvm_scap.log 2>&1
 00 4 * * * /usr/bin/greenbone-certdata-sync >> /var/log/gvm_feed.log 2>&1
-00 23 1-7 * 5 /usr/bin/greenbone-system 1 >> /var/log/greenbone-system.log 2>&1
+00 23 1-7 * 5 /usr/bin/greenbone-system 0 >> /var/log/greenbone-system.log 2>&1
 ------------------------------------------------------------------------
 
 # 1 - Sincroniza la hora del sistema con el servidor NTP oficial (hora.roa.es) todos los días a las 06:00  
