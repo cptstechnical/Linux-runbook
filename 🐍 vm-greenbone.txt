@@ -905,8 +905,86 @@ crontab -e
 # 	deprecated_feed_data → 			Información de feeds obsoletos o retirados.
 
 # creo un script que sirva de mantenimiento del servidor:
+vim /usr/bin/greenbone-system
+------------------------------------------------------------------------
+#!/bin/bash
+YELLOW='\033[1;33m'
+NC='\033[0m'
+clear
+
+DB_NAME="gvmd"
+DB_USER="gvm"
+
+cat << 'EOF'
 
 
+  ________                           ___.                                                  __
+ /  _____/______   ____   ____   ____\_ |__   ____   ____   ____     _________.__. _______/  |_  ____   _____
+/   \  __\_  __ \_/ __ \_/ __ \ /    \| __ \ /  _ \ /    \_/ __ \   /  ___<   |  |/  ___/\   __\/ __ \ /     \
+\    \_\  \  | \/\  ___/\  ___/|   |  \ \_\ (  <_> )   |  \  ___/   \___ \ \___  |\___ \  |  | \  ___/|  Y Y  \
+ \______  /__|    \___  >\___  >___|  /___  /\____/|___|  /\___  > /____  >/ ____/____  > |__|  \___  >__|_|  /
+        \/            \/     \/     \/    \/            \/     \/       \/ \/         \/            \/      \/
+                                            Script de mantenimiento para Greenbone
+
+EOF
+
+echo -e "${YELLOW}=============================="
+echo " Menu de mantenimiento GVM"
+echo "=============================="
+echo "1) Borrar valores de feeds en la DB (nvts, vt_refs, vt_severities, overrides, nvt_preferences, deprecated_feed_data)"
+echo "2) Borrar partes físicas de los feeds (/var/lib/gvm/scap-data, cert-data, nasl, etc.)"
+echo "3) Borrar reports (alerts, results, reports, report_hosts, report_host_details, report_format_*)"
+echo "4) Borrar hosts"
+echo "5) Borrar tasks"
+echo "6) Borrar targets"
+echo -e "7) Limpiar registros vacíos y optimizar DB (VACUUM FULL)" ${NC}
+read -p "Selecciona una opción (1-4): " opcion
+
+case $opcion in
+  1)
+    echo "Borrando tablas de feeds en la DB..."
+    psql -U $DB_USER -d $DB_NAME -c "TRUNCATE nvts, vt_refs, vt_severities, overrides, nvt_preferences, deprecated_feed_data RESTART IDENTITY CASCADE;"
+    echo "Hecho."
+    ;;
+  2)
+    echo "Borrando partes físicas de los feeds..."
+    systemctl stop gvmd ospd-openvas
+    rm -rf /var/lib/gvm/scap-data/* /var/lib/gvm/cert-data/* /var/lib/gvm/plugins/*
+    systemctl start gvmd ospd-openvas
+    echo "Hecho."
+    ;;
+  3)
+    echo "Borrando reports..."
+    psql -U $DB_USER -d $DB_NAME -c "TRUNCATE alerts, results, reports, report_hosts, report_host_details, report_format_params, report_format_param_options, report_formats RESTART IDENTITY CASCADE;"
+    echo "Hecho."
+    ;;
+  4)
+    echo "Borrando hosts..."
+    psql -U $DB_USER -d $DB_NAME -c "TRUNCATE hosts, host_details, host_oss, host_identifiers RESTART IDENTITY CASCADE;"
+    echo "Hecho."
+    ;;
+  5)
+    echo "Borrando tasks..."
+    psql -U $DB_USER -d $DB_NAME -c "TRUNCATE tasks, task_preferences, task_files, task_alerts RESTART IDENTITY CASCADE;"
+    echo "Hecho."
+    ;;
+  6)
+    echo "Borrando targets..."
+    psql -U $DB_USER -d $DB_NAME -c "TRUNCATE targets, targets_login_data RESTART IDENTITY CASCADE;"
+    echo "Hecho."
+    ;;
+  7)
+    echo "Limpiando registros vacíos y optimizando DB..."
+    sudo -u postgres psql -d "$DB_NAME" -U "$DB_USER" -c 'VACUUM FULL;'
+    echo "Hecho."
+    ;;
+  *)
+    echo "Opción inválida"
+    ;;
+esac
+------------------------------------------------------------------------
+
+chmod -x /usr/bin/greenbone-system
 
 
 #=========================================================================================================================
