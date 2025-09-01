@@ -798,6 +798,12 @@ iptables -L -n -v -t filter
 # 🔑 cambiar contraseña por defecto "admin" del usuario "admin" para la interface web
 gvmd --user=admin --new-password=Rengereg%768
 
+# 🔑 cambiar contraseña por defecto para la base de datos
+sudo -u postgres psql
+ALTER USER tu_usuario WITH PASSWORD 'nueva_contraseña';
+\q
+systemctl restart gvm
+
 #=========================================================================================================================
 [🐍ENTORNO WEB]::
 
@@ -830,7 +836,6 @@ watch -n 5 'du -sh /var/lib/gvm/scap-data/* /var/lib/openvas/plugins /var/lib/no
 
 # 📌 hace el comando anterior de manera automática, suma el tamaño de las carpetasmás importantes y manda un echo cada 5 segundo si se realizan cambios
 prev=0; while true; do curr=$(du -sb /var/lib/gvm/scap-data /var/lib/gvm/cert-data /var/lib/gvm/data-objects/gvmd /var/lib/openvas/plugins /var/lib/notus 2>/dev/null | awk '{s+=$1} END {print s}'); if [ "$curr" != "$prev" ]; then echo "$(date) ⚙️ Cambio detectado → $curr bytes"; prev=$curr; fi; sleep 5; done
-
 
 #=========================================================================================================================
 [🐍ENTORNO WEB CON NVT CERT GVMD_DATA SCAP CARGADOS]::
@@ -876,7 +881,7 @@ selecciona el scan config (ej. Full and Fast)
 	> Schedule: [Schedule 7:00]: Weekly	[ ] Once 	# Asegúrate de que "Once" NO esté activado, o se ignorará la recurrencia.
 
 #=========================================================================================================================
-[🐍SOLUCIÓN PARA EL PROBELMA DE ALMACENAMIENTO]::
+[🐍SOLUCIÓN AUTOMATISMO SIN LÍMITE DE ALMACENAMIENTO]::
 # Hay que entender que los feeds de las bases de datos de greenbone se van a estasr actualizando continuamente y esto hace que el almacenamiento se llene
 # además, también se puede llenar por los valores del escaner como exceso de reports etc
 # creo un cron que actualice de manera automática los feeds, todos los dias a la 1:00
@@ -944,12 +949,12 @@ EOF
     echo -e "${YELLOW}===================================================================================================================="
     echo " Menu de mantenimiento GVM"
     echo "===================================================================================================================="
-    echo "1) Modo mantenimiento automático (limpieza de feeds físicos, reports y DB > 15 días)"
+    echo "1) DELETE Modo mantenimiento automático (DELETE de feeds físicos, reports y DB > 15 días)"
     echo "2) Borrar archivos físicos de los feeds (/var/lib/gvm/scap-data, cert-data, nasl, etc.)"
-    echo "3) Borrar reports (alerts, results, reports, report_hosts, report_host_details, report_format_*)"
-    echo "4) Borrar hosts"
-    echo "5) Borrar tasks"
-    echo "6) Borrar targets"
+    echo "3) TRUNCATE * reports (alerts, results, reports, report_hosts, report_host_details, report_format_*)"
+    echo "4) TRUNCATE * hosts (hosts, host_details, host_oss, host_identifiers)"
+    echo "5) TRUNCATE * tasks (tasks, task_preferences, task_files, task_alerts)"
+    echo "6) TRUNCATE * targets (targets, targets_login_data)"
     echo -e "7) Limpiar registros vacíos y optimizar DB (VACUUM FULL)"${NC}
     echo -e "${RED}8) Borrar valores de feeds en la DB (nvts, vt_refs, vt_severities, overrides, nvt_preferences, deprecated_feed_data)" ${NC}
     read -p "Selecciona una opción (1-8): " opcion
@@ -964,7 +969,7 @@ case $opcion in
     systemctl stop gvmd ospd-openvas
     find /var/lib/gvm/scap-data/* /var/lib/gvm/cert-data/* -mtime +15 -exec rm -rf {} \;
     systemctl start gvmd ospd-openvas
-    echo "Archivos físicos de los feeds eliminados (/var/lib/gvm/scap-data/* y /var/lib/gvm/cert-data/*)."
+    echo "Archivos físicos de los feeds con más de 15 días eliminados (/var/lib/gvm/scap-data/* y /var/lib/gvm/cert-data/*)."
 
     # 2 Borrar reports con más de 15 días
     echo "Borrando reports con más de 15 días..."
@@ -1040,25 +1045,33 @@ echo "Registros borrados de más de 15 días (reports, report_hosts, report_host
 
   3)
     echo "Borrando reports..."
-    psql -U $DB_USER -d $DB_NAME -c "TRUNCATE alerts, results, reports, report_hosts, report_host_details, report_format_params, report_format_param_options, report_formats RESTART IDENTITY CASCADE;"
+    sudo -u $DB_USER psql -d $DB_NAME -c "
+    TRUNCATE alerts, results, reports, report_hosts, report_host_details, report_format_params, report_format_param_options, report_formats RESTART IDENTITY CASCADE;
+    "
     echo "Hecho."
     ;;
 
   4)
     echo "Borrando hosts..."
-    psql -U $DB_USER -d $DB_NAME -c "TRUNCATE hosts, host_details, host_oss, host_identifiers RESTART IDENTITY CASCADE;"
+    sudo -u $DB_USER psql -d $DB_NAME -c "
+    TRUNCATE hosts, host_details, host_oss, host_identifiers RESTART IDENTITY CASCADE;
+    "
     echo "Hecho."
     ;;
 
   5)
     echo "Borrando tasks..."
-    psql -U $DB_USER -d $DB_NAME -c "TRUNCATE tasks, task_preferences, task_files, task_alerts RESTART IDENTITY CASCADE;"
+    sudo -u $DB_USER psql -d $DB_NAME -c "
+    TRUNCATE tasks, task_preferences, task_files, task_alerts RESTART IDENTITY CASCADE;
+    "
     echo "Hecho."
     ;;
 
   6)
     echo "Borrando targets..."
-    psql -U $DB_USER -d $DB_NAME -c "TRUNCATE targets, targets_login_data RESTART IDENTITY CASCADE;"
+    sudo -u $DB_USER psql -d $DB_NAME -c "
+    TRUNCATE targets, targets_login_data RESTART IDENTITY CASCADE;
+    "
     echo "Hecho."
     ;;
 
