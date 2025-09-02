@@ -1017,7 +1017,7 @@ crontab -e
 # 	deprecated_feed_data → 			Información de feeds obsoletos o retirados.
 
 # creo un script que sirva de mantenimiento del servidor:
-vim /usr/bin/greenbone-system
+vim /usr/bin/greenbone-toolbox
 ------------------------------------------------------------------------
 #!/bin/bash
 # script para automatizar mantenimiento aplicación de Greenbone
@@ -1027,7 +1027,7 @@ RED='\033[1;31m'
 
 DB_NAME="gvmd"
 DB_USER="postgres"
-DAYS="30"
+DAYS="15"
 
 # Permitir ejecutar opción directamente por parámetro (para cron)
 if [ -n "$1" ]; then
@@ -1036,12 +1036,12 @@ else
     clear
     cat << 'EOF'
 
-  __________                           ___.                                                  __
- /    _____/______   ____   ____   ____\_ |__   ____   ____   ____     _________.__. _______/  |_  ____   _____
-/     \  __\_  __ \_/ __ \_/ __ \ /    \| __ \ /  _ \ /    \_/ __ \   /  ___<   |  |/  ___/\   __\/ __ \ /     \
-\      \_\  \  | \/\  ___/\  ___/|   |  \ \_\ (  <_> )   |  \  ___/   \___ \ \___  |\___ \  |  | \  ___/|  Y Y  \
- \________  /__|    \___  >\___  >___|  /___  /\____/|___|  /\___  > /____  >/ ____/____  > |__|  \___  >__|_|  /
-          \/            \/     \/     \/    \/            \/     \/       \/ \/         \/            \/      \/
+  __________                           ___.                          ___________           .__ ___.                 
+ /    _____/______   ____   ____   ____\_ |__   ____   ____   ____   \__    ___/___   ____ |  |\_ |__   _______  ___
+/     \  __\_  __ \_/ __ \_/ __ \ /    \| __ \ /  _ \ /    \_/ __ \    |    | /  _ \ /  _ \|  | | __ \ /  _ \  \/  /
+\      \_\  \  | \/\  ___/\  ___/|   |  \ \_\ (  <_> )   |  \  ___/    |    |(  <_> |  <_> )  |_| \_\ (  <_> >    < 
+ \________  /__|    \___  >\___  >___|  /___  /\____/|___|  /\___  >   |____| \____/ \____/|____/___  /\____/__/\_ \
+          \/            \/     \/     \/    \/            \/     \/                                 \/            \/
                                             Script de mantenimiento para Greenbone
 
 EOF
@@ -1276,13 +1276,13 @@ WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '${DAYS} days'));
 esac
 ------------------------------------------------------------------------
 
-chmod +x /usr/bin/greenbone-system
+chmod +x /usr/bin/greenbone-toolbox
 
 crontab -e
 ------------------------------------------------------------------------
 ...
 # Primer viernes de cada mes a la 1:00 AM
- 0 23 1-7 * 5 /usr/bin/greenbone-system 1 >> /var/log/greenbone-system.log 2>&1
+ 0 23 1-7 * 5 /usr/bin/greenbone-toolbox 1 >> /var/logç/greenbone-toolbox.log 2>&1
 ...
 ------------------------------------------------------------------------
 
@@ -1300,13 +1300,13 @@ crontab -e
 │  │ │ │ │
 00 6 * * * /usr/sbin/ntpdate -s hora.roa.es
 # A la 01:00 AM todos los días.
-00 1 * * * /usr/bin/greenbone-system 4 >> /var/log/gvm-feed.log 2>&1
+00 1 * * * /usr/bin/greenbone-toolbox 4 >> /var/log/gvm-feed.log 2>&1
 # A las 23:00 (11 PM), solo el primer viernes del mes.
-00 23 20-7 * 6 /usr/bin/greenbone-system 1 >> /var/log/greenbone-system.log 2>&1
-00 23 1-7 * 5 /usr/bin/greenbone-system 1 >> /var/log/greenbone-system.log 2>&1
+00 23 20-7 * 6 /usr/bin/greenbone-toolbox 1 >> /var/log/greenbone-toolbox.log 2>&1
+00 23 1-7 * 5 /usr/bin/greenbone-toolbox 1 >> /var/log/greenbone-toolbox.log 2>&1
 ------------------------------------------------------------------------
 
-# 00 1 * * * /usr/bin/greenbone-system 4 >> /var/log/gvm-feed.log 2>&1 										# este solo comando hace lo mismo que todos los de abajo...
+# 00 1 * * * /usr/bin/greenbone-toolbox 4 >> /var/log/gvm-feed.log 2>&1 										# este solo comando hace lo mismo que todos los de abajo...
 	# 00 1 * * * /usr/local/bin/greenbone-feed-sync >> /var/log/gvm-feed.log 2>&1
 	# 00 2 * * * /usr/bin/greenbone-nvt-sync >> /var/log/gvm_nvt.log 2>&1
 	# 00 3 * * * /usr/bin/greenbone-scapdata-sync >> /var/log/gvm_scap.log 2>&1
@@ -1433,7 +1433,7 @@ df -h
 	sudo du -sh /var/lib/postgresql
 
 
-## toda la configuración siguiente la he desarrollado en el script de greenbone-system que es un script a medida desarrollado por mí, antes de seguir prueba a ejecutarlo yrecuerda no borrar la base de datos porque perderas todo.
+## toda la configuración siguiente la he desarrollado en el script de greenbone-toolbox que es un script a medida desarrollado por mí, antes de seguir prueba a ejecutarlo yrecuerda no borrar la base de datos porque perderas todo.
 
 # No debes borrar la base de datos, ya que la corrupción de datos es segura ya que se borra su estructura
 # La única forma segura de eliminar la información que llena el disco es a través de la interfaz de Greenbone:
