@@ -1291,6 +1291,13 @@ crontab -e
 # crontab completo
 crontab -e
 ------------------------------------------------------------------------
+┌───────────────── Minuto    → 00
+│  ┌─────────────── Hora     → 6:00
+│  │ ┌───────────── Día mes  → todos los días
+│  │ │ ┌─────────── Mes      → todos los meses
+│  │ │ │ ┌───────── Día sem  → todas las semanas
+│  │ │ │ │
+│  │ │ │ │
 00 6 * * * /usr/sbin/ntpdate -s hora.roa.es
 # A la 01:00 AM todos los días.
 00 1 * * * /usr/bin/greenbone-system 4 >> /var/log/gvm-feed.log 2>&1
@@ -1324,6 +1331,14 @@ rm -rf build install source
 # - cada día en horario nocturno:
 # 		+ sincroniza todos los archivos de descarga física, liberando disco.
 # 		+ reinicia servicios de postgresql, gvmd, gsad, ospd-openvas y openvasd.
+
+
+# además del script es recomendable tener fijo el número máximo de reportes por cada tarea
+# de esta manera en el caso de que se hagan más del número estimado de tareas, serán sustituidas por las anteriormente creadas
+# 5 es el número que he elegido en mí caso para de vueltas que quiero que realice, es decir, a la sexta tarea se sustituirá por la primera
+Scans > Task > Edit task
+Automatically delete oldest reports but always keep newest: 5
+
 
 
 #=========================================================================================================================
