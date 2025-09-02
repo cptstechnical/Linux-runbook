@@ -1027,7 +1027,7 @@ RED='\033[1;31m'
 
 DB_NAME="gvmd"
 DB_USER="postgres"
-DAYS="15"
+DAYS="30"
 
 # Permitir ejecutar opción directamente por parámetro (para cron)
 if [ -n "$1" ]; then
@@ -1302,6 +1302,7 @@ crontab -e
 # A la 01:00 AM todos los días.
 00 1 * * * /usr/bin/greenbone-system 4 >> /var/log/gvm-feed.log 2>&1
 # A las 23:00 (11 PM), solo el primer viernes del mes.
+00 23 20-7 * 6 /usr/bin/greenbone-system 1 >> /var/log/greenbone-system.log 2>&1
 00 23 1-7 * 5 /usr/bin/greenbone-system 1 >> /var/log/greenbone-system.log 2>&1
 ------------------------------------------------------------------------
 
@@ -1323,9 +1324,9 @@ crontab -e
 rm -rf build install source
 
 # con esta configuración se consigue mantener limpio de manera automática el proyecto de greenbone, estoas son las actuaciones que va a realizar
-# - cada 15 días:
-# 		+ elimina los archivos físicos pertenecientes a los feeds con un periodo de creación mayor a 15 díás.
-# 		+ elimina los registros de las tablas results_trash, report_host, report_host_details, results_trash, results, alert_condition_data, alert_event_data, alert_method_data, alerts, reports en forma CASCADE, solo a registros mayores de 15 días, manteniendo task y configuraciones.
+# - cada 30 días (o fecha estipulada en el script):
+# 		+ elimina los archivos físicos pertenecientes a los feeds con un periodo de creación mayor a 30 días (o fecha estipulada en el script).
+# 		+ elimina los registros de las tablas como results_trash, report_host, report_host_details, results_trash... en forma de CASCADE, solo a registros mayores de 30 días (o fecha estipulada en el script), manteniendo task y configuraciones.
 # 		+ optimización de la base de datos y elimina registros vacíos (VACUUM FULL).
 # 		+ reinicia servicios de postgresql, gvmd, gsad, ospd-openvas y openvasd.
 # - cada día en horario nocturno:
