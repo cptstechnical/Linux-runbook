@@ -1207,7 +1207,16 @@ crontab -e
 # ⚠️ para conseguir almacenamiento, una vez instalado greenbone podemos eliminar las carpetas que hemos utilizado par compilar y almacenar las descargas...
 rm -rf build install source
 
-# con esta configuración se consigue mantener limpio de manera automática el proyecto de greenbone ya que cada 15 días se van a borrar los datos de las bases de datos y cada día actualiza el sincronizador y elimina los archivos innecesarios que ya haya enviado a la db
+# con esta configuración se consigue mantener limpio de manera automática el proyecto de greenbone, estoas son las actuaciones que va a realizar
+# - cada 15 días:
+# 		+ elimina los archivos físicos pertenecientes a los feeds con un periodo de creación mayor a 15 díás.
+# 		+ elimina los registros de las tablas results_trash, report_host, report_host_details, results_trash, results, alert_condition_data, alert_event_data, alert_method_data, alerts, reports en forma CASCADE, solo a registros mayores de 15 días.
+# 		+ optimización de la base de datos y elimina registros vacíos (VACUUM FULL).
+# 		+ reinicia servicios de postgresql, gvmd, gsad, ospd-openvas y openvasd.
+# - cada día en horario nocturno:
+# 		+ sincroniza todos los archivos de descarga física, liberando disco.
+# 		+ reinicia servicios de postgresql, gvmd, gsad, ospd-openvas y openvasd.
+
 
 #=========================================================================================================================
 #=========================================================================================================================
