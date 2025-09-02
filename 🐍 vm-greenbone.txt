@@ -860,6 +860,109 @@ SCANS > Task > New Task
 ## 🚨 el error típico ante falta de recursos es que cuando creas un Task se queda en : ❌ Interrupted at 0 %
 # si has llegado hasta aquí sin fallos, 🎉🎉 ¡Enhorabuena!, ya tiene un Greenbone instalado en Debian
 
+[USO REAL · CALENDARIO DE SECUENCIAS]:
+**************************************
+# creo un nuevo objetivo al que indicar el conjunto de ips
+Menú > Configuration > Targets > "creo un target por cada VLAN existente"
+ejemplo:
+---------------------------------------------------------------
+Name: Target Camaras
+Hosts - Manual: 10.1.XX.1/24
+Port List: All IANA assigned TCP
+Alive Test: Scan Config Default
+> Save
+---------------------------------------------------------------
+
+# creo los terminos horarios 
+Menú > Configuration > Schedules > New Schedule
+ejemplo:
+---------------------------------------------------------------
+Name: [Schedule week-1 Day-1]: 07:00
+Start Date: 30/06/2025
+Start Time: 07:00
+Timezone: Europe/Madrid
+Run Until: [x]Open End
+Recurrence: custom
+Repeat - Every: 2 week(s)
+Repeat at: [x]Mo.
+---------------------------------------------------------------
+
+
+## Calendario según horario y VLAN:
++-----------+----------+--------+---------------------+
+|   Día     | Semana   | Hora   | Actividad           |
++-----------+----------+--------+---------------------+
+| Lunes     | Semana 1 | 07:00  | VLAN1               |
+|           | Semana 2 | 07:00  | VLAN2               |
++-----------+----------+--------+---------------------+
+| Martes    | Semana 1 | 07:00  | VLAN3               |
+|           | Semana 2 | 07:00  | VLAN4               |
++-----------+----------+--------+---------------------+
+| Miércoles | Semana 1 | 07:00  | VLAN5               |
+|           | Semana 1 | 12:00  | VLAN6               |
+|           | Semana 2 | 07:00  | VLAN7               |
+|           | Semana 2 | 12:00  | VLAN8               |
++-----------+----------+--------+---------------------+
+| Jueves    | Semana 1 | 07:00  | VLAN9               |
+|           | Semana 2 | 07:00  | VLAN10              |
+|           | Semana 2 | 12:00  | VLAN11              |
++-----------+----------+--------+---------------------+
+| Viernes   | Semana 1 | 07:00  | VLAN12              |
+|           | Semana 2 | 07:00  | VLAN13              |
++-----------+----------+--------+---------------------+
+
+
+# una vez configurados todos los horarios creo una nueva tarea
+Menu > Scan > Task > New Task
+ejemplo: 
+---------------------------------------------------------------
+Name: Task of the Camaras VLAN10								# creo el nombre señalando el nombre de la VLAN y la VLAN (manteniendo este sistema)
+Schedule: [Schedule week-1 Day-2]: 07:00 						# selecciono el horario perteneciente a la tabla anteriormente creada
+Add results to Assets: [x]Yes
+Apply Overrides: [x]Yes
+Min QoD: 70
+Automatically delete oldest reports but always keep newest: 5	# Esto creará cinco informes, al quinto sustituirá el anterior
+Scanner: OpenVAS Default
+Scan Config: Full and Fast
+Order for target hosts: Sequential
+Maximum concurrently executed NVTs per host: 3
+Maximum concurrently scanned hosts: 1
+---------------------------------------------------------------
+
+## sistema de alertas:
+Menu > Configuration > Alerts
+ejemplo:
+---------------------------------------------------------------
+Name: Escaneo interrumpido
+Event - Task run status changed to: Stooped
+Condition: Always
+Delta Report: None
+Method: Email
+To Address: isaac.navajas@grafometal.es
+From Address: greengone@grafometal.es
+Subject: [GVM] Task '$n': $e
+Content: Include report :
+-
+Tarea '$n': $e
+****************************************************************************
+Después del evento: $e,
+se cumplió la siguiente condición: `$c`
+	
+Esta notificación por correo está configurada para aplicar el formato de informe '$r'.
+-
+Active: yes
+---------------------------------------------------------------
+
+# quiero realizar los siguientes avisos por: 
+- Escaneo interrumpido
+- Parada solicitada del escaneo
+
+
+## papelera:
+# en el caso de que de haya borrado pruebas las eliminamos para dejar una instalación limpia
+Menu > Administration > Trashcan > Empy Trash
+
+
 #=========================================================================================================================
 [🐍PROGRAMAR ESCANER AUTOMATICO]::
 # Una vez que se a creado el target
