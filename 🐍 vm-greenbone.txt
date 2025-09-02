@@ -1157,7 +1157,7 @@ crontab -e
 ------------------------------------------------------------------------
 
 #=========================================================================================================================
-[🐍CRONTAB COMPLETO]::
+[🐍CRONTAB COMPLETO Y MANTENIMIENTO]::
 # crontab completo
 crontab -e
 ------------------------------------------------------------------------
@@ -1175,6 +1175,9 @@ crontab -e
 # 4 - Actualiza la base de datos SCAP (Security Content Automation Protocol) todos los días a las 03:00  
 # 5 - Actualiza la base de datos CERT (vulnerabilidades y avisos de seguridad) todos los días a las 04:00  
 # 6 - Ejecuta el script de mantenimiento automático (limpieza de elementos con más de quince días) el primer viernes del mes entre los días 1 y 7 a las 23:00  
+
+# ⚠️ para conseguir almacenamiento, una vez instalado greenbone podemos eliminar las carpetas que hemos utilizado par compilar y almacenar las descargas...
+rm -rf build install source
 
 
 #=========================================================================================================================
