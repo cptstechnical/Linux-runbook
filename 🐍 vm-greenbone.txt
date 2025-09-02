@@ -1215,7 +1215,7 @@ rm -rf build install source
 # con esta configuración se consigue mantener limpio de manera automática el proyecto de greenbone, estoas son las actuaciones que va a realizar
 # - cada 15 días:
 # 		+ elimina los archivos físicos pertenecientes a los feeds con un periodo de creación mayor a 15 díás.
-# 		+ elimina los registros de las tablas results_trash, report_host, report_host_details, results_trash, results, alert_condition_data, alert_event_data, alert_method_data, alerts, reports en forma CASCADE, solo a registros mayores de 15 días.
+# 		+ elimina los registros de las tablas results_trash, report_host, report_host_details, results_trash, results, alert_condition_data, alert_event_data, alert_method_data, alerts, reports en forma CASCADE, solo a registros mayores de 15 días, manteniendo task y configuraciones.
 # 		+ optimización de la base de datos y elimina registros vacíos (VACUUM FULL).
 # 		+ reinicia servicios de postgresql, gvmd, gsad, ospd-openvas y openvasd.
 # - cada día en horario nocturno:
@@ -1313,6 +1313,9 @@ df -h
 	# para comprobar la base de datos sin entrar en ella 
 	sudo du -sh /var/lib/postgresql
 
+
+## toda la configuración siguiente la he desarrollado en el script de greenbone-system que es un script a medida desarrollado por mí, antes de seguir prueba a ejecutarlo yrecuerda no borrar la base de datos porque perderas todo.
+
 # No debes borrar la base de datos, ya que la corrupción de datos es segura ya que se borra su estructura
 # La única forma segura de eliminar la información que llena el disco es a través de la interfaz de Greenbone:
 # 1 🐍 - parar escaneador de openvas para que deje de escanear y siga ocupando almacenamiento 
@@ -1332,7 +1335,7 @@ sudo systemctl restart postgresql
 sudo systemctl restart gvmd
 sudo systemctl restart gsad
 
-# 3 🐍 - volver a entrar en greenbone y desde dentro del dashboard purgar la base de datos para conseguir más almacenamiento
+# 3 🐍 - volver a entrar en greenbone y desde dentro del dashboard y eliminar los reports y lo que sea necesario para conseguir más almacenamiento
 # entro vía web
 Scan > reports > delete > (elimino todos o casi todos)
 
