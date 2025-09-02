@@ -957,14 +957,14 @@ EOF
     echo " Menu de mantenimiento GVM"
     echo "===================================================================================================================="
     echo "1) DELETE Modo mantenimiento automático (DELETE de feeds físicos, reports y DB > ${DAYS} días)"
-    echo "2) TRUNCATE * reports (alerts, results, reports, report_hosts, report_host_details, report_format_*)"
-    echo "3) TRUNCATE * hosts (hosts, host_details, host_oss, host_identifiers)"
-    echo "4) TRUNCATE * tasks (tasks, task_preferences, task_files, task_alerts)"
-    echo "5) TRUNCATE * targets (targets, targets_login_data)"
-    echo "6) Borrar archivos físicos de los feeds (/var/lib/gvm/scap-data, cert-data, nasl, etc.)"
-    echo -e "7) Limpiar registros vacíos y optimizar DB (VACUUM FULL)"
-    echo -e "8) Reiniciar todos los servicios y sincronizadores de Greenbone (systemctls y greenbone-*)"${NC}
-    echo -e "${RED}9) RESET reinicio de la base de datos" ${NC}
+    echo "2) Borrar archivos físicos de los feeds (/var/lib/gvm/scap-data, cert-data, nasl, etc.)"
+    echo "3) Limpiar registros vacíos y optimizar DB (VACUUM FULL)"
+    echo "4) Reiniciar todos los servicios y sincronizadores de Greenbone (systemctls y greenbone-*)"${NC}
+    echo "5) TRUNCATE * reports (alerts, results, reports, report_hosts, report_host_details, report_format_*)"
+    echo "6) TRUNCATE * hosts (hosts, host_details, host_oss, host_identifiers)"
+    echo "7) TRUNCATE * tasks (tasks, task_preferences, task_files, task_alerts)"
+    echo "8) TRUNCATE * targets (targets, targets_login_data)"
+    echo -e "${RED}9) RESET reinicio de la base de datos (borro la db para volverla a generar vacía)" ${NC}
     read -p "Selecciona una opción (1-9): " opcion
 fi
 
@@ -1043,40 +1043,7 @@ echo "Registros borrados de más de ${DAYS} días (reports, report_hosts, report
     systemctl restart openvasd
     ;;
 
-  
   2)
-    echo "Borrando reports..."
-    sudo -u $DB_USER psql -d $DB_NAME -c "
-    TRUNCATE alerts, results, reports, report_hosts, report_host_details, report_format_params, report_format_param_options, report_formats RESTART IDENTITY CASCADE;
-    "
-    echo "Hecho."
-    ;;
-
-  3)
-    echo "Borrando hosts..."
-    sudo -u $DB_USER psql -d $DB_NAME -c "
-    TRUNCATE hosts, host_details, host_oss, host_identifiers RESTART IDENTITY CASCADE;
-    "
-    echo "Hecho."
-    ;;
-
-  4)
-    echo "Borrando tasks..."
-    sudo -u $DB_USER psql -d $DB_NAME -c "
-    TRUNCATE tasks, task_preferences, task_files, task_alerts RESTART IDENTITY CASCADE;
-    "
-    echo "Hecho."
-    ;;
-
-  5)
-    echo "Borrando targets..."
-    sudo -u $DB_USER psql -d $DB_NAME -c "
-    TRUNCATE targets, targets_login_data RESTART IDENTITY CASCADE;
-    "
-    echo "Hecho."
-    ;;
-
-  6)
     echo "Borrando archivos físicos de los feeds..."
     systemctl stop gvmd ospd-openvas
     # [x]: /var/lib/gvm/scap-data/ - CVEs, CPEs, OVAL. 55 
@@ -1088,13 +1055,13 @@ echo "Registros borrados de más de ${DAYS} días (reports, report_hosts, report
     ;;
 
 
-  7)
+  3)
     echo "Limpiando registros vacíos y optimizando DB..."
     sudo -u postgres psql -d "$DB_NAME" -U "$DB_USER" -c 'VACUUM FULL;'
     echo "Hecho."
     ;;
 
-  8)
+  4)
     greenbone-nvt-sync
     greenbone-scapdata-sync
     greenbone-certdata-sync
@@ -1108,6 +1075,38 @@ echo "Registros borrados de más de ${DAYS} días (reports, report_hosts, report
     systemctl restart ospd-openvas
     systemctl restart openvasd
     echo "Servicios reiniciados (postgresql, gvmd, gsad, ospd-openvas y openvasd)."
+    ;;
+
+  5)
+    echo "Borrando reports..."
+    sudo -u $DB_USER psql -d $DB_NAME -c "
+    TRUNCATE alerts, results, reports, report_hosts, report_host_details, report_format_params, report_format_param_options, report_formats RESTART IDENTITY CASCADE;
+    "
+    echo "Hecho."
+    ;;
+
+  6)
+    echo "Borrando hosts..."
+    sudo -u $DB_USER psql -d $DB_NAME -c "
+    TRUNCATE hosts, host_details, host_oss, host_identifiers RESTART IDENTITY CASCADE;
+    "
+    echo "Hecho."
+    ;;
+
+  7)
+    echo "Borrando tasks..."
+    sudo -u $DB_USER psql -d $DB_NAME -c "
+    TRUNCATE tasks, task_preferences, task_files, task_alerts RESTART IDENTITY CASCADE;
+    "
+    echo "Hecho."
+    ;;
+
+  8)
+    echo "Borrando targets..."
+    sudo -u $DB_USER psql -d $DB_NAME -c "
+    TRUNCATE targets, targets_login_data RESTART IDENTITY CASCADE;
+    "
+    echo "Hecho."
     ;;
 
   9)
@@ -1191,7 +1190,7 @@ crontab -e
 # 00 2 * * * /usr/bin/greenbone-nvt-sync >> /var/log/gvm_nvt.log 2>&1
 # 00 3 * * * /usr/bin/greenbone-scapdata-sync >> /var/log/gvm_scap.log 2>&1
 # 00 4 * * * /usr/bin/greenbone-certdata-sync >> /var/log/gvm_feed.log 2>&1
-00 1 * * * /usr/bin/greenbone-system 8 >> /var/log/gvm-feed.log 2>&1
+00 1 * * * /usr/bin/greenbone-system 4 >> /var/log/gvm-feed.log 2>&1
 00 23 1-7 * 5 /usr/bin/greenbone-system 1 >> /var/log/greenbone-system.log 2>&1
 ------------------------------------------------------------------------
 
