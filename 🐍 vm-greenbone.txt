@@ -933,12 +933,12 @@ else
     clear
     cat << 'EOF'
 
-  _________                           ___.                                                  __
- /   _____/______   ____   ____   ____\_ |__   ____   ____   ____     _________.__. _______/  |_  ____   _____
-/    \  __\_  __ \_/ __ \_/ __ \ /    \| __ \ /  _ \ /    \_/ __ \   /  ___<   |  |/  ___/\   __\/ __ \ /     \
-\     \_\  \  | \/\  ___/\  ___/|   |  \ \_\ (  <_> )   |  \  ___/   \___ \ \___  |\___ \  |  | \  ___/|  Y Y  \
- \_______  /__|    \___  >\___  >___|  /___  /\____/|___|  /\___  > /____  >/ ____/____  > |__|  \___  >__|_|  /
-        \/            \/     \/     \/    \/            \/     \/        \/ \/         \/            \/      \/
+  __________                           ___.                                                  __
+ /    _____/______   ____   ____   ____\_ |__   ____   ____   ____     _________.__. _______/  |_  ____   _____
+/     \  __\_  __ \_/ __ \_/ __ \ /    \| __ \ /  _ \ /    \_/ __ \   /  ___<   |  |/  ___/\   __\/ __ \ /     \
+\      \_\  \  | \/\  ___/\  ___/|   |  \ \_\ (  <_> )   |  \  ___/   \___ \ \___  |\___ \  |  | \  ___/|  Y Y  \
+ \________  /__|    \___  >\___  >___|  /___  /\____/|___|  /\___  > /____  >/ ____/____  > |__|  \___  >__|_|  /
+          \/            \/     \/     \/    \/            \/     \/       \/ \/         \/            \/      \/
                                             Script de mantenimiento para Greenbone
 
 EOF
@@ -957,7 +957,7 @@ EOF
     echo " Menu de mantenimiento GVM"
     echo "===================================================================================================================="
     echo "1) DELETE Modo mantenimiento automático (DELETE de feeds físicos, reports y DB > ${DAYS} días)"
-    echo "2) Borrar archivos físicos de los feeds (/var/lib/gvm/scap-data, cert-data, nasl, etc.)"
+    echo "2) Borrar archivos físicos de los feeds (/scap-data/*, /cert-data/* y /openvas/plugins/*)"
     echo "3) Limpiar registros vacíos y optimizar DB (VACUUM FULL)"
     echo "4) Reiniciar todos los servicios y sincronizadores de Greenbone (systemctls y greenbone-*)"${NC}
     echo "5) TRUNCATE * reports (alerts, results, reports, report_hosts, report_host_details, report_format_*)"
@@ -977,7 +977,7 @@ case $opcion in
     systemctl stop gvmd ospd-openvas
     find /var/lib/gvm/scap-data/* /var/lib/gvm/cert-data/* /var/lib/openvas/plugins/* -mtime +${DAYS} -exec rm -rf {} \;
     systemctl start gvmd ospd-openvas
-    echo "Archivos físicos de los feeds con más de ${DAYS} días eliminados (/var/lib/gvm/scap-data/* y /var/lib/gvm/cert-data/*)."
+    echo "Archivos físicos de los feeds con más de ${DAYS} días eliminados (/var/lib/gvm/scap-data/*, /var/lib/gvm/cert-data/* y /var/lib/openvas/plugins/*)."
 
     # 2 Borrar reports con más de ${DAYS} días
     echo "Borrando reports con más de ${DAYS} días..."
@@ -1028,7 +1028,7 @@ WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '${DAYS} days'));
 DELETE FROM reports
 WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '${DAYS} days'));
 "
-echo "Registros borrados de más de ${DAYS} días (reports, report_hosts, report_host_details, results, alerts)."
+    echo "Registros borrados de más de ${DAYS} días (reports, report_hosts, report_host_details, results, alerts)."
 
     # 3 Limpiar registros vacíos y optimizar DB
     echo "Limpiando registros vacíos y optimizando DB... (VACUUM FULL)"
@@ -1062,11 +1062,11 @@ echo "Registros borrados de más de ${DAYS} días (reports, report_hosts, report
     ;;
 
   4)
-    greenbone-nvt-sync
-    greenbone-scapdata-sync
-    greenbone-certdata-sync
-    greenbone-feed-sync
-    # sudo runuser -u gvm -- greenbone-feed-sync --type all
+    #greenbone-nvt-sync
+    #greenbone-scapdata-sync
+    #greenbone-certdata-sync
+    #greenbone-feed-sync
+    sudo runuser -u gvm -- greenbone-feed-sync --type all
     sudo runuser -u gvm -- gvmd --rebuild
     echo "Sincronizadores reiniciados (greenbone-feed-sync, greenbone-nvt-sync, greenbone-scapdata-sync, greenbone-certdata-sync) ."
     systemctl restart postgresql
@@ -1186,13 +1186,15 @@ crontab -e
 crontab -e
 ------------------------------------------------------------------------
 00 6 * * * /usr/sbin/ntpdate -s hora.roa.es
-# 00 1 * * * /usr/local/bin/greenbone-feed-sync >> /var/log/gvm-feed.log 2>&1
-# 00 2 * * * /usr/bin/greenbone-nvt-sync >> /var/log/gvm_nvt.log 2>&1
-# 00 3 * * * /usr/bin/greenbone-scapdata-sync >> /var/log/gvm_scap.log 2>&1
-# 00 4 * * * /usr/bin/greenbone-certdata-sync >> /var/log/gvm_feed.log 2>&1
 00 1 * * * /usr/bin/greenbone-system 4 >> /var/log/gvm-feed.log 2>&1
 00 23 1-7 * 5 /usr/bin/greenbone-system 1 >> /var/log/greenbone-system.log 2>&1
 ------------------------------------------------------------------------
+
+# 00 1 * * * /usr/bin/greenbone-system 4 >> /var/log/gvm-feed.log 2>&1 										# este solo comando hace lo mismo que todos los de abajo...
+	# 00 1 * * * /usr/local/bin/greenbone-feed-sync >> /var/log/gvm-feed.log 2>&1
+	# 00 2 * * * /usr/bin/greenbone-nvt-sync >> /var/log/gvm_nvt.log 2>&1
+	# 00 3 * * * /usr/bin/greenbone-scapdata-sync >> /var/log/gvm_scap.log 2>&1
+	# 00 4 * * * /usr/bin/greenbone-certdata-sync >> /var/log/gvm_feed.log 2>&1
 
 # 1 - Sincroniza la hora del sistema con el servidor NTP oficial (hora.roa.es) todos los días a las 06:00  
 # 2 - Actualiza el feed general de Greenbone todos los días a la 01:00  
@@ -1201,9 +1203,11 @@ crontab -e
 # 5 - Actualiza la base de datos CERT (vulnerabilidades y avisos de seguridad) todos los días a las 04:00  
 # 6 - Ejecuta el script de mantenimiento automático (limpieza de elementos con más de quince días) el primer viernes del mes entre los días 1 y 7 a las 23:00  
 
+
 # ⚠️ para conseguir almacenamiento, una vez instalado greenbone podemos eliminar las carpetas que hemos utilizado par compilar y almacenar las descargas...
 rm -rf build install source
 
+# con esta configuración se consigue mantener limpio de manera automática el proyecto de greenbone ya que cada 15 días se van a borrar los datos de las bases de datos y cada día actualiza el sincronizador y elimina los archivos innecesarios que ya haya enviado a la db
 
 #=========================================================================================================================
 #=========================================================================================================================
