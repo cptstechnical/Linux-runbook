@@ -1186,7 +1186,9 @@ crontab -e
 crontab -e
 ------------------------------------------------------------------------
 00 6 * * * /usr/sbin/ntpdate -s hora.roa.es
+# A la 01:00 AM todos los días.
 00 1 * * * /usr/bin/greenbone-system 4 >> /var/log/gvm-feed.log 2>&1
+# A las 23:00 (11 PM), solo el primer viernes del mes.
 00 23 1-7 * 5 /usr/bin/greenbone-system 1 >> /var/log/greenbone-system.log 2>&1
 ------------------------------------------------------------------------
 
