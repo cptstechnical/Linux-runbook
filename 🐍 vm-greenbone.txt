@@ -938,8 +938,8 @@ Event - Task run status changed to: Stooped
 Condition: Always
 Delta Report: None
 Method: Email
-To Address: isaac.navajas@grafometal.es
-From Address: greengone@grafometal.es
+To Address: <mi-correo>@gmail.es
+From Address: greenbone@greenbone.es
 Subject: [GVM] Task '$n': $e
 Content: Include report :
 -
