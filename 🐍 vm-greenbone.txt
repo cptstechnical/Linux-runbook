@@ -1289,6 +1289,8 @@ crontab -e
 
 #=========================================================================================================================
 [🐍CRONTAB COMPLETO Y MANTENIMIENTO]::
+# TODA ESTA PARTE DE MANTNIMIENTO SOLO ES NECESARIO EN EL CASO COMO EN EL MIO, QUE TENGA POCOS RECURSOS, COMO LOS QUE INDICO AL PRINCIPIO
+
 # crontab completo
 crontab -e
 ------------------------------------------------------------------------
@@ -1320,6 +1322,7 @@ crontab -e
 # 5 - Actualiza la base de datos CERT (vulnerabilidades y avisos de seguridad) todos los días a las 04:00  
 # 6 - Ejecuta el script de mantenimiento automático (limpieza de elementos con más de quince días) el primer viernes del mes entre los días 1 y 7 a las 23:00  
 
+# -
 
 # ⚠️ para conseguir almacenamiento, una vez instalado greenbone podemos eliminar las carpetas que hemos utilizado par compilar y almacenar las descargas...
 rm -rf build install source
@@ -1334,12 +1337,55 @@ rm -rf build install source
 # 		+ sincroniza todos los archivos de descarga física, liberando disco.
 # 		+ reinicia servicios de postgresql, gvmd, gsad, ospd-openvas y openvasd.
 
-
 # además del script es recomendable tener fijo el número máximo de reportes por cada tarea
 # de esta manera en el caso de que se hagan más del número estimado de tareas, serán sustituidas por las anteriormente creadas
 # 5 es el número que he elegido en mí caso para de vueltas que quiero que realice, es decir, a la sexta tarea se sustituirá por la primera
 Scans > Task > Edit task
 Automatically delete oldest reports but always keep newest: 5
+
+# -
+
+# ⚠️ todas estas modificaciones han sido debido a que le he dado muchos menos recursos de los que realmente pide en la página oficial de greenbone...
+# además, tengo un problema de optimización de cores por lo que los voy a limitar, se puede hacer de la forma de abajo pero lo DEJO comentado porque prefiero solucionarlo de otra manera...
+#vim /etc/systemd/system/ospd-openvas.service
+#------------------------------------------------------------------------
+#...
+#[Service]
+#CPUQuota=80%
+#...
+#------------------------------------------------------------------------
+
+vim /etc/openvas/openvas.conf
+------------------------------------------------------------------------
+table_driven_lsc = yes
+openvasd_server = http://<ip>:3000
+db_address = /run/redis-openvas/redis.sock
+max_scan_processes = 3
+scanner_plugins_timeout = 300
+------------------------------------------------------------------------
+
+systemctl restart postgresql
+systemctl restart gvmd
+systemctl restart gsad
+systemctl restart ospd-openvas
+systemctl restart openvasd
+
+# la manera en la que voy a solucionar la gestión de los cores va a ser a través de ordenar de los trabajos
+# por cada task lo voy a gestionar de la siguiente manera (como en el siguiente ejemplo):
+------------------------------------------------------------------------
+Name														: Task of the Camaras VLAN 19
+Scan Targets												: Target Camaras
+Schedule													: [Schedule week-1 Day-2]: 07:00		# creado anteriormente desde configuration > Schedule
+Add results to Assets 										: yes
+Apply Overrides												: yes
+Min QoD														: 70
+Automatically delete oldest reports but always keep newest	: 4										# importante para optimizazr
+Scanner														: OpenVas Default
+Scan Config													: Full and Fast
+Order for target hosts										: Sequential
+Maximum concurrently executed NVTs per host					: 3										# importante para optimizazr
+Maximum concurrently scanned hosts							: 1										# importante para optimizazr
+------------------------------------------------------------------------
 
 
 
