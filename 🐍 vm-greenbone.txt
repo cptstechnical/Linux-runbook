@@ -1173,7 +1173,8 @@ WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '${DAYS} days'));
     sudo runuser -u gvm -- greenbone-feed-sync --type all
     # enlazo los feeds de los archivos a la db
     sudo runuser -u gvm -- gvmd --rebuild
-    echo "Sincronizadores reiniciados (greenbone-feed-sync, greenbone-nvt-sync, greenbone-scapdata-sync, greenbone-certdata-sync) ."
+    echo "Sincronizadores reiniciados y enviados a la db (greenbone-feed-sync, greenbone-nvt-sync, greenbone-scapdata-sync, greenbone-certdata-sync && gvmd --rebuild) ."
+    
     
     systemctl restart postgresql
     systemctl restart gvmd
