@@ -1360,8 +1360,8 @@ vim /etc/openvas/openvas.conf
 table_driven_lsc = yes
 openvasd_server = http://<ip>:3000
 db_address = /run/redis-openvas/redis.sock
-max_scan_processes = 3
-scanner_plugins_timeout = 300
+max_scan_processes = 3																				# procesos de escaneo paralelos puede lanzar el scanner openvas
+scanner_plugins_timeout = 300																		# 300 s de timeout de conexión por prueba
 ------------------------------------------------------------------------
 
 systemctl restart postgresql
