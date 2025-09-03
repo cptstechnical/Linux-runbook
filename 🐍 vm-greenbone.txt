@@ -1062,7 +1062,7 @@ EOF
     echo "1) DELETE Modo mantenimiento automático (DELETE de feeds físicos, reports y DB > ${DAYS} días)"
     echo "2) Borrar archivos físicos de los feeds (/scap-data/*, /cert-data/* y /openvas/plugins/*)"
     echo "3) Limpiar registros vacíos y optimizar DB (VACUUM FULL)"
-    echo "4) Reiniciar todos los servicios y sincronizadores de Greenbone (systemctls y greenbone-*)"${NC}
+    echo "4) Reiniciar todos los servicios y sincronizadores de Greenbone (systemctls y greenbone-*)"
     echo "5) TRUNCATE * reports (alerts, results, reports, report_hosts, report_host_details, report_format_*)"
     echo "6) TRUNCATE * hosts (hosts, host_details, host_oss, host_identifiers)"
     echo "7) TRUNCATE * tasks (tasks, task_preferences, task_files, task_alerts)"
