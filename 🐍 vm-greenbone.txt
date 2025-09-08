@@ -16,13 +16,11 @@
 
 df -h
 lscpu | grep "^CPU(s)"
-
 	> CPU Cores: 2
 	> Random-Access Memory: 4GB
 	> Hard Disk: 20GB free
 
 ## ⚠️ recursos con los que he realizado la máquina::
-
 	> CPU Cores: 4
 	> Random-Access Memory: 4GB
 	> Hard Disk: 40GB
