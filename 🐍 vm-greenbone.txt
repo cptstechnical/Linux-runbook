@@ -28,6 +28,11 @@ lscpu | grep "^CPU(s)"
 	> Hard Disk: 40GB
 
 🔥🕷️ En mi caso es la segunda vez que realizo la instalación porque no localizaba el fallo, pero como mi máquina es de bajos recursos tengo que realizar la instalación modificando los recursos de la máquina.
+🐍 en el caso de querer escanear desde dentro de cada sistema operativo (AD), hay que aignar a los escaneos una cuenta administrador desde el active directory, esto evalua:
+		+ Registro (regedit).
+		+ Parches instalados (KBs).
+		+ Configuración de seguridad (firewall, UAC, RDP, etc.).
+		+ Versiones reales de librerías/DLL (no solo lo que dice el banner).
 
 #=========================================================================================================================
 [🐍MI INSTALACIÓN ORDENADA]::
@@ -860,8 +865,9 @@ SCANS > Task > New Task
 ## 🚨 el error típico ante falta de recursos es que cuando creas un Task se queda en : ❌ Interrupted at 0 %
 # si has llegado hasta aquí sin fallos, 🎉🎉 ¡Enhorabuena!, ya tiene un Greenbone instalado en Debian
 
-[USO REAL · CALENDARIO DE SECUENCIAS]:
-**************************************
+#=========================================================================================================================
+[🐍ENTORNO WEB · CALENDARIO DE SECUENCIAS]::
+
 # creo un nuevo objetivo al que indicar el conjunto de ips
 Menú > Configuration > Targets > "creo un target por cada VLAN existente"
 ejemplo:
@@ -929,6 +935,9 @@ Maximum concurrently executed NVTs per host: 3
 Maximum concurrently scanned hosts: 1
 ---------------------------------------------------------------
 
+#=========================================================================================================================
+[🐍ENTORNO WEB · ALERTAS]::
+
 ## sistema de alertas:
 Menu > Configuration > Alerts
 ejemplo:
@@ -963,7 +972,7 @@ Menu > Administration > Trashcan > Empy Trash
 
 
 #=========================================================================================================================
-[🐍ESCANEAR EQUIPOS EN ACTIVE DIRECTORY]::
+[🐍ENTORNO WEB · ESCANEAR EQUIPOS EN ACTIVE DIRECTORY]::
 
 # + Sin credenciales Windows → solo te saca vulnerabilidades “remotas” (servicios expuestos, banners, TLS, SMBv1, etc.). No va a detectar CVEs que dependen de parches o configuraciones de registro locales.
 # + Con credenciales Windows (usuario estándar) → Greenbone se conecta vía SMB/WinRM al host donde se autentica ese usuario.
@@ -979,10 +988,8 @@ Configuración → Cartas credenciales → Nueva credencial
 # una vez creada la credencial se asocia al task
 Configuration → Targets → New Target → Credentials
 
-
-
 #=========================================================================================================================
-[🐍PROGRAMAR ESCANER AUTOMATICO]::
+[🐍ENTORNO WEB · PROGRAMAR ESCANER AUTOMATICO]::
 # Una vez que se a creado el target
 Menú > Configuration > Targets > New Target
 	> 192.168.1.0/24
@@ -1007,7 +1014,7 @@ selecciona el scan config (ej. Full and Fast)
 
 #=========================================================================================================================
 [🐍SOLUCIÓN AUTOMATISMO SIN LÍMITE DE ALMACENAMIENTO]::
-# Hay que entender que los feeds de las bases de datos de greenbone se van a estasr actualizando continuamente y esto hace que el almacenamiento se llene
+# Hay que entender que los feeds de las bases de datos de greenbone se van a estar actualizando continuamente y esto hace que el almacenamiento se llene
 # además, también se puede llenar por los valores del escaner como exceso de reports etc
 # creo un cron que actualice de manera automática los feeds, todos los dias a la 1:00
 crontab -e
@@ -1353,7 +1360,7 @@ Automatically delete oldest reports but always keep newest: 5
 # -
 
 # ⚠️ todas estas modificaciones han sido debido a que le he dado muchos menos recursos de los que realmente pide en la página oficial de greenbone...
-# además, tengo un problema de optimización de cores por lo que los voy a limitar, se puede hacer de la forma de abajo pero lo DEJO comentado porque prefiero solucionarlo de otra manera...
+# además, tengo un problema de optimización de cores por lo que los voy a limitar, se puede hacer de la forma de abajo pero lo dejo comentado porque prefiero solucionarlo de otra manera...
 #vim /etc/systemd/system/ospd-openvas.service
 #------------------------------------------------------------------------
 #...
