@@ -957,10 +957,28 @@ Active: yes
 - Escaneo interrumpido
 - Parada solicitada del escaneo
 
-
 ## papelera:
 # en el caso de que de haya borrado pruebas las eliminamos para dejar una instalación limpia
 Menu > Administration > Trashcan > Empy Trash
+
+
+#=========================================================================================================================
+[🐍ESCANEAR EQUIPOS EN ACTIVE DIRECTORY]::
+
+# + Sin credenciales Windows → solo te saca vulnerabilidades “remotas” (servicios expuestos, banners, TLS, SMBv1, etc.). No va a detectar CVEs que dependen de parches o configuraciones de registro locales.
+# + Con credenciales Windows (usuario estándar) → Greenbone se conecta vía SMB/WinRM al host donde se autentica ese usuario.
+# 	- Detecta vulnerabilidades de ese host concreto, no del resto de máquinas en el dominio.
+# 	- No “salta” de un equipo a otro solo por estar en el mismo AD.
+# + Si el usuario tiene privilegios de Domain Admin o permisos de administración → remota sobre varios equipos, entonces sí podrías auditar otros hosts del dominio, pero eso ya no lo hace Greenbone automáticamente, sino que tú defines el scope (ej: el /24 completo) y Greenbone usará esas credenciales donde tengan validez.
+
+# 🐍 Si agrego un usuario administrador de active directory. Greenbone puede evaluar todos los equipos pivotando donde esas credenciales funcionen.
+# se conecta vía SMB/WinRM al host donde se autentica ese usuario
+Configuration → Credentials → New Credential
+Configuración → Cartas credenciales → Nueva credencial
+
+# una vez creada la credencial se asocia al task
+Configuration → Targets → New Target → Credentials
+
 
 
 #=========================================================================================================================
