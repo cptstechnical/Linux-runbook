@@ -1302,25 +1302,11 @@ crontab -e
 │  │ │ │ │
 │  │ │ │ │
 00 6 * * * /usr/sbin/ntpdate -s hora.roa.es
-# A la 01:00 AM todos los días.
+# A la 01:00 AM todos los días, reinicio servicios y sincronizadores
 00 1 * * * /usr/bin/greenbone-toolbox 4 >> /var/log/gvm-feed.log 2>&1
-# A las 23:00 (11 PM), solo el primer viernes del mes.
-00 23 20-7 * 6 /usr/bin/greenbone-toolbox 1 >> /var/log/greenbone-toolbox.log 2>&1
+# A las 23:00 (11 PM), solo el primer viernes del mes, modo mantenimiento
 00 23 1-7 * 5 /usr/bin/greenbone-toolbox 1 >> /var/log/greenbone-toolbox.log 2>&1
 ------------------------------------------------------------------------
-
-# 00 1 * * * /usr/bin/greenbone-toolbox 4 >> /var/log/gvm-feed.log 2>&1 										# este solo comando hace lo mismo que todos los de abajo...
-	# 00 1 * * * /usr/local/bin/greenbone-feed-sync >> /var/log/gvm-feed.log 2>&1
-	# 00 2 * * * /usr/bin/greenbone-nvt-sync >> /var/log/gvm_nvt.log 2>&1
-	# 00 3 * * * /usr/bin/greenbone-scapdata-sync >> /var/log/gvm_scap.log 2>&1
-	# 00 4 * * * /usr/bin/greenbone-certdata-sync >> /var/log/gvm_feed.log 2>&1
-
-# 1 - Sincroniza la hora del sistema con el servidor NTP oficial (hora.roa.es) todos los días a las 06:00  
-# 2 - Actualiza el feed general de Greenbone todos los días a la 01:00  
-# 3 - Actualiza los NVT (Network Vulnerability Tests) todos los días a las 02:00  
-# 4 - Actualiza la base de datos SCAP (Security Content Automation Protocol) todos los días a las 03:00  
-# 5 - Actualiza la base de datos CERT (vulnerabilidades y avisos de seguridad) todos los días a las 04:00  
-# 6 - Ejecuta el script de mantenimiento automático (limpieza de elementos con más de quince días) el primer viernes del mes entre los días 1 y 7 a las 23:00  
 
 # -
 
