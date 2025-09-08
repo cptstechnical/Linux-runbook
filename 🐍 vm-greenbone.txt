@@ -1045,7 +1045,10 @@ else
                                             Script de mantenimiento para Greenbone
 
 EOF
+	#descripción breve
+	# echo "En GVM, los feeds se descargan en disco como fuente temporal (scap-data/, cert-data/ y plugins/) y luego se importan a PostgreSQL, donde se indexan y relacionan con escaneos, CVEs, vulnerabilidades, tareas y reportes."
 
+	#descripción extensa
     echo "En Greenbone/GVM hay dos sitios distintos donde se descarga la información (greenbone-feed-sync):"
     echo "  - Feeds descargados (ficheros en disco): fuente temporal."
     echo "          + scap-data/ → CVEs, CPEs, OVAL, definiciones SCAP"
