@@ -179,6 +179,9 @@ mkdir /aptelliot/mensajes
 apt install postfix
     - web
 
+# entro en carpeta de scripts
+cd /aptelliot
+
 # 👍📮 creo el script en el caso que el correo remitente sea de dominio
 vim enviar-mensaje.sh
 --------------------------------------------------------------------------
@@ -226,6 +229,6 @@ fi
 crontab -e
 --------------------------------------------------------------------------
 # cada día a las 4:00
-0 4 * * * /aptelliot/mensajes/enviar-mensaje.sh
+0 4 * * * /aptelliot/enviar-mensaje.sh
 --------------------------------------------------------------------------
 
