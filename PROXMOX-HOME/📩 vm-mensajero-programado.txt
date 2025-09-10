@@ -1,10 +1,122 @@
-# 🧠 Este servidor se utiliza como 
-# 🐧
+# 🧠 Este servidor se utiliza como ejecutor de diferentes scripts a bajo nivel...
 
 #=========================================================================================================================
-[🪖📩 ce-500]::
-# Documentación oficial kismet :             https://www.kismetwireless.net/docs/readme/installing/linux/
-# documentación oficial clamav :             https://docs.clamav.net/
+#=========================================================================================================================
+[🪖📩 PROYECTO MONITOR]::
+
+# script
+cd /aptelliot
+vim monitor.sh
+--------------------------------------------------------------------------
+#!/bin/bash
+
+# Configuración: IP -> Nombre del dispositivo
+declare -A IP_MAP
+IP_MAP=( 
+    ["192.168.1.1"]="Router"
+    ["8.8.8.8"]="Google-DNS1"
+    ["8.8.4.4"]="Google-DNS2"
+    # Agrega tus 20 IPs con nombre
+)
+
+# Archivos
+STATUS_FILE="/var/lib/aptelliot/ip_status.txt"
+LOG_FILE="/var/log/monitor.log"
+FROM_EMAIL="tuemail@gmail.com"
+TO_EMAIL="destino@gmail.com"
+SUBJECT="Cambio de estado de IP"
+SMTP_CONFIG="/etc/msmtprc"
+
+# Inicializar archivos si no existen
+mkdir -p /var/lib/aptelliot
+touch "$STATUS_FILE"
+touch "$LOG_FILE"
+
+# Función para enviar correo
+send_email() {
+    local ip=$1
+    local name=$2
+    local state=$3
+    {
+        echo -e "Subject: $SUBJECT\n\nEl dispositivo '$name' (IP: $ip) cambió a estado: $state"
+    } | msmtp --file="$SMTP_CONFIG" --from="$FROM_EMAIL" "$TO_EMAIL"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Enviado correo: $name ($ip) -> $state" >> "$LOG_FILE"
+}
+
+# Comprobar cada IP
+for ip in "${!IP_MAP[@]}"; do
+    ping -c 1 -W 1 "$ip" > /dev/null 2>&1
+    current_status=$([ $? -eq 0 ] && echo "UP" || echo "DOWN")
+    previous_status=$(grep "^$ip " "$STATUS_FILE" | awk '{print $2}')
+
+    # Log del ping
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Ping $ip (${IP_MAP[$ip]}): $current_status" >> "$LOG_FILE"
+
+    # Si cambió el estado, enviar correo y log
+    if [ "$previous_status" != "$current_status" ]; then
+        send_email "$ip" "${IP_MAP[$ip]}" "$current_status"
+        # Actualizar o agregar estado
+        grep -v "^$ip " "$STATUS_FILE" > "$STATUS_FILE.tmp"
+        echo "$ip $current_status" >> "$STATUS_FILE.tmp"
+        mv "$STATUS_FILE.tmp" "$STATUS_FILE"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Estado actualizado: $ip -> $current_status" >> "$LOG_FILE"
+    fi
+done
+--------------------------------------------------------------------------
+
+chmod +x monitor.sh
+
+# configuro la terminal en bash
+apk add bash
+
+# instalo msmtp, es ligero, minimalista y solo envía correo saliente (sirve para enviar mensajes puntuales no es un servidor de correo como postfix)
+apk add msmtp
+
+# compruebo permisos
+#chmod 600 /etc/msmtprc
+
+# configuro msmtprc con Gmail
+vim /etc/msmtprc
+---------------------------------------------
+defaults
+auth           on
+tls            on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+logfile        ~/.msmtp.log
+
+account        gmail
+host           smtp.gmail.com
+port           587
+from           tuemail@gmail.com
+user           tuemail@gmail.com
+password       TU_PASSWORD_APP
+account default : gmail  
+---------------------------------------------
+
+# creo un servicio
+vim /etc/systemd/system/monitor.service
+---------------------------------------------
+[Unit]
+Description=Monitor de IPs y envío de alertas por correo
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/aptelliot/monitor.sh
+Restart=always
+RestartSec=60    # Ejecuta el script cada 60 segundos
+User=root        # O usuario con permisos para msmtp
+Environment=MSMTP_CONFIG=/etc/msmtprc
+
+[Install]
+WantedBy=multi-user.target
+---------------------------------------------
+
+# activo el servicio
+systemctl daemon-reload
+systemctl enable monitor.service
+systemctl start monitor.service
+
 
 #=========================================================================================================================
 [🪖📩 INSTALAR ANTIVIRUS]::
@@ -42,13 +154,19 @@ sudo freshclam
 
 
 #=========================================================================================================================
+#=========================================================================================================================
+[🪖📩 PROYECTO MENSAJERO PROGRAMADO]::
+# Documentación oficial kismet :             https://www.kismetwireless.net/docs/readme/installing/linux/
+# documentación oficial clamav :             https://docs.clamav.net/
+
+# -
 [🪖📩 MENSAJES PROGRAMADOS]::
 # 🧠 enviará cad día un mensaje programado a la misma hora (siempre que lo haya), ordenando los archivos a enviar por orden.
 # 🧠 una vez enviado, se clasifica el mensaje dentro de la carpeta /enviados de la misma ruta y aunque permanezca en el servidor no se volverá a mandar dicho mensaje.
 # 🧠 al mover el mensaje a la carpeta enviados le cambia el nombre por la fecha y luego su nombree original para que no sobreescriban. Ej: 20250619_082815_nombre.txt
 
 # creo una carpeta con los mensajes
-mkdir /isaac/mensajes
+mkdir /aptelliot/mensajes
 
 # instalo postfix
 apt install postfix
@@ -59,7 +177,7 @@ vim enviar-mensaje.sh
 --------------------------------------------------------------------------
 #!/bin/bash
 
-CARPETA="/isaac/mensajes"
+CARPETA="/aptelliot/mensajes"
 DESTINO="to@dominio.es"               # DESTINO="primero@dominio.com, segundo@dominio.com, tercero@dominio.com"
 DESTINO_OCULTO="bcc@dominio.com"      # DESTINO_OCULTO="primero@dominio.com, segundo@dominio.com, tercero@dominio.com"
 ASUNTO="Nuevo mensaje"
