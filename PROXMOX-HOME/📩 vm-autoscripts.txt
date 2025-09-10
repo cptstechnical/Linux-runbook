@@ -8,6 +8,54 @@ systemctl status monitor
 systemctl status monitor
 
 #=========================================================================================================================
+[🪖📩 CONFIGURACIÓN INICIAL DE POSTFIX CON GMAIL]::
+vim /etc/postfix/main.cf
+--------------------------------------------------------------------------
+# Nombre del host y dominios locales
+myhostname = autoscript.local
+myorigin = /etc/mailname
+mydestination = localhost
+
+# Relay a Gmail
+relayhost = [smtp.gmail.com]:587
+
+# TLS
+smtp_use_tls = yes
+smtp_tls_security_level = encrypt
+smtp_tls_CAfile = /etc/ssl/certs/ca-certificates.crt
+
+# Autenticación SASL
+smtp_sasl_auth_enable = yes
+smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+smtp_sasl_security_options = noanonymous
+smtp_sasl_mechanism_filter = plain, login
+
+# Forzar IPv4 (opcional, evita errores de conexión IPv6)
+smtp_address_preference = ipv4
+--------------------------------------------------------------------------
+
+vim /etc/postfix/sasl_passwd
+--------------------------------------------------------------------------
+[smtp.gmail.com]:587 de@gmail.com:<contraseña-de-aplicación>
+--------------------------------------------------------------------------
+
+# Compilar y proteger credenciales
+postmap /etc/postfix/sasl_passwd
+chmod 600 /etc/postfix/sasl_passwd /etc/postfix/sasl_passwd.db
+
+# instalar paquete
+apt install libsasl2-modules -y
+
+# Reiniciar Postfix
+systemctl restart postfix
+systemctl enable postfix
+
+# prueba local
+echo "Prueba de Gmail vía Postfix" | sendmail -v -f de@gmail.com a@gmail.com -t
+
+
+
+#=========================================================================================================================
 #=========================================================================================================================
 [🪖📩 PROYECTO MONITOR]::
 
@@ -17,88 +65,78 @@ vim monitor.sh
 --------------------------------------------------------------------------
 #!/bin/bash
 
-# Configuración: IP -> Nombre del dispositivo
-declare -A IP_MAP
-IP_MAP=( 
-    ["192.168.1.1"]="Router"
-    ["8.8.8.8"]="Google-DNS1"
-    ["8.8.4.4"]="Google-DNS2"
-    # Agrega tus 20 IPs con nombre
+### === CONFIGURACIÓN DE IPs === ###
+declare -A IP_MAP=(
+    ["192.168.1.1"]="ROUTER-DIGI"
+    ["192.168.1.75"]="PROXMOX"
+    ["192.168.1.129"]="TV-SALÓN"
+    ["192.168.1.130"]="PC-MILITAR-WIFI"
+    ["192.168.1.131"]="PORTATIL-AIR"
+    ["192.168.1.134"]="ANDROID"
+    ["192.168.1.136"]="TV-HABITACIÓN"
+    ["192.168.1.137"]="IPHONE"
 )
 
-# Archivos
 STATUS_FILE="/var/lib/aptelliot/ip_status.txt"
 LOG_FILE="/var/log/monitor.log"
-FROM_EMAIL="tuemail@gmail.com"
-TO_EMAIL="destino@gmail.com"
-SUBJECT="Cambio de estado de IP"
-SMTP_CONFIG="/etc/msmtprc"
 
-# Inicializar archivos si no existen
+### === CONFIGURACIÓN DEL CORREO === ###
+GMAIL_USER="de@gmail.com"
+DESTINO="a@gmail.com"
+ASUNTO="🪖📩  Cambio de estado de IP"
+REMITENTE="no-reply@autoscript.local"
+
+# Inicializar archivos
 mkdir -p /var/lib/aptelliot
-touch "$STATUS_FILE"
-touch "$LOG_FILE"
+touch "$STATUS_FILE" "$LOG_FILE"
 
-# Función para enviar correo
+### === FUNCIONES === ###
+
 send_email() {
     local ip=$1
     local name=$2
     local state=$3
-    {
-        echo -e "Subject: $SUBJECT\n\nEl dispositivo '$name' (IP: $ip) cambió a estado: $state"
-    } | msmtp --file="$SMTP_CONFIG" --from="$FROM_EMAIL" "$TO_EMAIL"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Enviado correo: $name ($ip) -> $state" >> "$LOG_FILE"
+
+    (
+        echo "Subject: $ASUNTO"
+        echo "From: $REMITENTE"
+        echo "To: $DESTINO"
+        echo "Content-Type: text/plain; charset=utf-8"
+        echo
+        echo "El dispositivo '$name' (IP: $ip) cambió a estado: $state"
+    ) | sendmail -v -f "$REMITENTE" -t >> "$LOG_FILE" 2>&1
+
+    echo "$(date '+%F %T') - Intento de envío: $name ($ip) -> $state" >> "$LOG_FILE"
 }
 
-# Comprobar cada IP
+### === COMPROBACIÓN DE IPs === ###
 for ip in "${!IP_MAP[@]}"; do
-    ping -c 1 -W 1 "$ip" > /dev/null 2>&1
-    current_status=$([ $? -eq 0 ] && echo "UP" || echo "DOWN")
+    if ping -c 1 -W 1 "$ip" &>/dev/null; then
+        current_status="UP"
+    else
+        current_status="DOWN"
+    fi
+
     previous_status=$(grep "^$ip " "$STATUS_FILE" | awk '{print $2}')
 
-    # Log del ping
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Ping $ip (${IP_MAP[$ip]}): $current_status" >> "$LOG_FILE"
+    echo "$(date '+%F %T') - Ping $ip (${IP_MAP[$ip]}): $current_status" >> "$LOG_FILE"
 
-    # Si cambió el estado, enviar correo y log
-    if [ "$previous_status" != "$current_status" ]; then
+    # Enviar correo si cambia el estado o si es la primera vez (previous_status vacío)
+    if [ "$previous_status" != "$current_status" ] || [ -z "$previous_status" ]; then
         send_email "$ip" "${IP_MAP[$ip]}" "$current_status"
-        # Actualizar o agregar estado
-        grep -v "^$ip " "$STATUS_FILE" > "$STATUS_FILE.tmp"
-        echo "$ip $current_status" >> "$STATUS_FILE.tmp"
-        mv "$STATUS_FILE.tmp" "$STATUS_FILE"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Estado actualizado: $ip -> $current_status" >> "$LOG_FILE"
+
+        # Actualizar estado en el archivo
+        tmp=$(mktemp)
+        grep -v "^$ip " "$STATUS_FILE" > "$tmp"
+        echo "$ip $current_status" >> "$tmp"
+        mv "$tmp" "$STATUS_FILE"
+
+        echo "$(date '+%F %T') - Estado actualizado: $ip -> $current_status" >> "$LOG_FILE"
     fi
 done
 --------------------------------------------------------------------------
 
 chmod +x monitor.sh
-
-# configuro la terminal en bash
-apk add bash
-
-# instalo msmtp, es ligero, minimalista y solo envía correo saliente (sirve para enviar mensajes puntuales no es un servidor de correo como postfix)
-apk add msmtp
-
-# compruebo permisos
-#chmod 600 /etc/msmtprc
-
-# configuro msmtprc con Gmail
-vim /etc/msmtprc
----------------------------------------------
-defaults
-auth           on
-tls            on
-tls_trust_file /etc/ssl/certs/ca-certificates.crt
-logfile        ~/.msmtp.log
-
-account        gmail
-host           smtp.gmail.com
-port           587
-from           tuemail@gmail.com
-user           tuemail@gmail.com
-password       TU_PASSWORD_APP
-account default : gmail  
----------------------------------------------
 
 # creo un servicio
 vim /etc/systemd/system/monitor.service
@@ -111,9 +149,14 @@ After=network.target
 Type=simple
 ExecStart=/aptelliot/monitor.sh
 Restart=always
-RestartSec=60    # Ejecuta el script cada 60 segundos
-User=root        # O usuario con permisos para msmtp
-Environment=MSMTP_CONFIG=/etc/msmtprc
+
+# Ejecuta el script cada 60 segundos tras fallo/restart
+RestartSec=60
+
+# Ejecutar como root (puedes cambiarlo si tienes un usuario dedicado)
+User=root
+
+#Environment=MSMTP_CONFIG=/etc/msmtprc
 
 [Install]
 WantedBy=multi-user.target
@@ -123,6 +166,7 @@ WantedBy=multi-user.target
 systemctl daemon-reload
 systemctl enable monitor.service
 systemctl start monitor.service
+systemctl status monitor.service
 
 
 #=========================================================================================================================
