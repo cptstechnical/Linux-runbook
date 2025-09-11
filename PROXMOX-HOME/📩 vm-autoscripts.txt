@@ -8,7 +8,41 @@ systemctl status monitor
 systemctl status monitor
 
 #=========================================================================================================================
-[🪖📩 CONFIGURACIÓN INICIAL DE POSTFIX CON GMAIL]::
+[🪖📩 (OPCIONAL) INSTALAR ANTIVIRUS]::
+# paquetes de Linux de utilización rápida y práctica (escaneres):
+# 💯 realizo la instalación de un antivirus para automatizar el escaner de archivos corruptos en el servidor
+
+# instalación antivirus Linux:
+## 👹 clamav::
+apt install clamav
+apt install clamav-freshclam
+# busco actualizaciones en la base de datos
+sudo freshclam
+# escaneo manualmente el sistema
+# clamscan -[parámetros] [ruta de carpeta]
+# sudo clamscan -r /
+sudo clamscan -r /home
+
+# 👹 formas de uso con clamav:
+# guardo un registro de archivos infectados
+sudo clamscan -l /ruta/al/archivo.txt -r /ruta/al/directorio
+
+# mandar archivo a cuarentena (para no causar daño al servidor):
+# sudo clamscan --move=/path/to/quarantine -r /ruta/al/directorio
+sudo clamscan --move=/path/to/quarantine -r /ruta/al/directorio -l /ruta/al/archivo.txt
+
+# borrar archivos maliciosos:
+# sudo clamscan --remove -r /ruta/al/directorio
+sudo clamscan --remove -r /ruta/al/directorio -l /ruta/al/archivo.txt
+
+# actualizar base de datos 
+sudo freshclam
+
+# lo que puedo hacer es un cron y un alias para que automatice el análisis de virus. 
+# 🆗
+
+#=========================================================================================================================
+[🪖📩 CONFIGURACIÓN INICIAL DE POSTFIX CON GMAIL PARA EL RESTO DE SCRIPTS]::
 vim /etc/postfix/main.cf
 --------------------------------------------------------------------------
 # Nombre del host y dominios locales
@@ -52,7 +86,6 @@ systemctl enable postfix
 
 # prueba local
 echo "Prueba de Gmail vía Postfix" | sendmail -v -f de@gmail.com a@gmail.com -t
-
 
 
 #=========================================================================================================================
@@ -170,41 +203,6 @@ systemctl status monitor.service
 
 
 #=========================================================================================================================
-[🪖📩 INSTALAR ANTIVIRUS]::
-# paquetes de Linux de utilización rápida y práctica (escaneres):
-# 💯 realizo la instalación de un antivirus para automatizar el escaner de archivos corruptos en el servidor
-
-# instalación antivirus Linux:
-## 👹 clamav::
-apt install clamav
-apt install clamav-freshclam
-# busco actualizaciones en la base de datos
-sudo freshclam
-# escaneo manualmente el sistema
-# clamscan -[parámetros] [ruta de carpeta]
-# sudo clamscan -r /
-sudo clamscan -r /home
-
-# 👹 formas de uso con clamav:
-# guardo un registro de archivos infectados
-sudo clamscan -l /ruta/al/archivo.txt -r /ruta/al/directorio
-
-# mandar archivo a cuarentena (para no causar daño al servidor):
-# sudo clamscan --move=/path/to/quarantine -r /ruta/al/directorio
-sudo clamscan --move=/path/to/quarantine -r /ruta/al/directorio -l /ruta/al/archivo.txt
-
-# borrar archivos maliciosos:
-# sudo clamscan --remove -r /ruta/al/directorio
-sudo clamscan --remove -r /ruta/al/directorio -l /ruta/al/archivo.txt
-
-# actualizar base de datos 
-sudo freshclam
-
-# lo que puedo hacer es un cron y un alias para que automatice el análisis de virus. 
-# 🆗
-
-
-#=========================================================================================================================
 #=========================================================================================================================
 [🪖📩 PROYECTO MENSAJERO PROGRAMADO]::
 # Documentación oficial kismet :             https://www.kismetwireless.net/docs/readme/installing/linux/
@@ -230,12 +228,11 @@ cd /aptelliot
 vim enviar-mensaje.sh
 --------------------------------------------------------------------------
 #!/bin/bash
-
 CARPETA="/aptelliot/mensajes"
-DESTINO="to@dominio.es"               # DESTINO="primero@dominio.com, segundo@dominio.com, tercero@dominio.com"
-DESTINO_OCULTO="bcc@dominio.com"      # DESTINO_OCULTO="primero@dominio.com, segundo@dominio.com, tercero@dominio.com"
+DESTINO="de@gmail.com"                  # puedes poner varios separados por coma
+DESTINO_OCULTO="bcc@gmail.com"          # puedes poner varios separados por coma
 ASUNTO="Nuevo mensaje"
-REMITENTE="from@dominio.es"           # correo real
+REMITENTE="a@gmail.com"
 DESTINO_ENVIADOS="$CARPETA/enviados"
 
 # Crear carpeta de enviados si no existe
