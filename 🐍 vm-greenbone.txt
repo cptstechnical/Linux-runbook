@@ -926,7 +926,7 @@ Schedule: [Schedule week-1 Day-2]: 07:00 						# selecciono el horario perteneci
 Add results to Assets: [x]Yes
 Apply Overrides: [x]Yes
 Min QoD: 70
-Automatically delete oldest reports but always keep newest: 5	# Esto creará cinco informes, al quinto sustituirá el anterior
+Automatically delete oldest reports but always keep newest: 2	# Esto creará dos informes, al segundo sustituirá el primero que realizó
 Scanner: OpenVAS Default
 Scan Config: Full and Fast
 Order for target hosts: Sequential
