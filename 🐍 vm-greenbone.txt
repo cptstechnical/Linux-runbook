@@ -1073,13 +1073,13 @@ EOF
 	# echo "En GVM, los feeds se descargan en disco como fuente temporal (scap-data/, cert-data/ y plugins/) y luego se importan a PostgreSQL, donde se indexan y relacionan con escaneos, CVEs, vulnerabilidades, tareas y reportes."
 
 	#descripción extensa
-    echo "En Greenbone/GVM hay dos sitios distintos donde se descarga la información (greenbone-feed-sync):"
+    echo "En Greenbone/GVM hay dos sitios donde se descarga la información, los registros de la db apuntan a los feeds descargados:"
     echo "  - Feeds descargados (ficheros en disco): fuente temporal."
     echo "          + scap-data/ → CVEs, CPEs, OVAL, definiciones SCAP"
     echo "          + cert-data/ → Alertas y bulletins CERT."
-    echo "          + plugins/   → NVTs (scripts NASL), nasl-data." 
-    echo "  - Base de datos PostgreSQL (gvmd DB): recoge los datos de los archivos físicos y los almacena en la db."
-    echo "          + Se indexan, relacionan con los resultados de tus escaneos y se enlazan CVEs ↔ Hosts ↔ Vulnerabilidades encontradas."
+    echo "          + plugins/   → NVTs (scripts NASL), nasl-data. (en versiones antiguas se referencia como nvt/)" 
+    echo "  - Base de datos PostgreSQL (gvmd DB): cada registro actua como “punteros” y metadatos que permiten buscar y relacionar vulnerabilidades con tareas/escaneos de los archivos físicos."
+    echo "          + Se indexan, relacionandose como los resultados de tus escaneos CVEs ↔ Hosts ↔ Vulnerabilidades encontradas."
     echo "          + También ahí se guardan tasks, targets, resultados de escaneo, reportes, usuarios, permisos, etc."
     echo ""
 
@@ -1090,7 +1090,7 @@ EOF
     echo "2) Borrar archivos físicos de los feeds (/scap-data/*, /cert-data/* y /openvas/plugins/*)"
     echo "3) Limpiar registros vacíos y optimizar DB (VACUUM FULL)"
     echo "4) Reiniciar todos los servicios y sincronizadores de Greenbone (systemctls y greenbone-*)"
-	echo "5) Borrar feeds de PostgreSQL TRUNCATE TABLE nvt cves cpes cert CASCADE"
+	echo "5) Borrar feeds físicos y reconstruye la cache de feeds en la base de datos"
     echo "6) TRUNCATE * reports (alerts, results, reports, report_hosts, report_host_details, report_format_*)"
     echo "7) TRUNCATE * hosts (hosts, host_details, host_oss, host_identifiers)"
     echo "8) TRUNCATE * tasks (tasks, task_preferences, task_files, task_alerts)"
@@ -1209,8 +1209,8 @@ WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '${DAYS} days'));
     # enlazo los feeds de los archivos a la db
     sudo runuser -u gvm -- gvmd --rebuild
     echo "Sincronizadores reiniciados y enviados a la db (greenbone-feed-sync, greenbone-nvt-sync, greenbone-scapdata-sync, greenbone-certdata-sync && gvmd --rebuild) ."
-    
-    
+	
+    # ejecuto los servicios
     systemctl restart postgresql
     systemctl restart gvmd
     systemctl restart gsad
@@ -1220,16 +1220,29 @@ WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '${DAYS} days'));
     ;;
 
   5)
-    echo "Borrando feeds de PostgreSQL..."
-    sudo -u $DB_USER psql -d $DB_NAME -c "
-	TRUNCATE TABLE nvt CASCADE;
-	TRUNCATE TABLE nvt_families CASCADE;
-	TRUNCATE TABLE cves CASCADE;
-	TRUNCATE TABLE oval_definitions CASCADE;
-	TRUNCATE TABLE cpes CASCADE;
-	TRUNCATE TABLE cert_data CASCADE;
-	"
-    echo "Hecho."
+	# paro servicios
+    echo -e "${YELLOW}paro servicios" ${NC}
+	sudo systemctl stop gvmd
+	sudo systemctl stop ospd-openvas
+
+	# borro feeds físicos
+	echo -e "${YELLOW}elimino feeds físicos" ${NC}
+	sudo rm -rf /var/lib/gvm/nvt/*
+	sudo rm -rf /var/lib/gvm/scap-data/*
+	sudo rm -rf /var/lib/gvm/cert-data/*
+
+	# Eliminar lock huérfano
+	echo -e "${YELLOW}elimino lock huérfano" ${NC}
+	sudo rm -f /var/lib/gvm/feed-update.lock
+
+	# levanto servicios
+	echo -e "${YELLOW}levanto servicios" ${NC}
+	sudo systemctl start gvmd
+	sudo systemctl start ospd-openvas
+
+	# Reconstruir cache y vaciar la DB de feeds
+	echo -e "${YELLOW}Reconstruyo cache y vacio la base de datos de feeds" ${NC}
+	sudo runuser -u gvm -- gvmd --rebuild --verbose
     ;;
 
   6)
