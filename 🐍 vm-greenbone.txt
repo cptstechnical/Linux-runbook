@@ -1090,11 +1090,12 @@ EOF
     echo "2) Borrar archivos físicos de los feeds (/scap-data/*, /cert-data/* y /openvas/plugins/*)"
     echo "3) Limpiar registros vacíos y optimizar DB (VACUUM FULL)"
     echo "4) Reiniciar todos los servicios y sincronizadores de Greenbone (systemctls y greenbone-*)"
-    echo "5) TRUNCATE * reports (alerts, results, reports, report_hosts, report_host_details, report_format_*)"
-    echo "6) TRUNCATE * hosts (hosts, host_details, host_oss, host_identifiers)"
-    echo "7) TRUNCATE * tasks (tasks, task_preferences, task_files, task_alerts)"
-    echo "8) TRUNCATE * targets (targets, targets_login_data)"
-    echo -e "${RED}9) RESET reinicio de la base de datos (borro la db para volverla a generar vacía)" ${NC}
+	echo "5) Borrar feeds de PostgreSQL TRUNCATE TABLE nvt cves cpes cert CASCADE"
+    echo "6) TRUNCATE * reports (alerts, results, reports, report_hosts, report_host_details, report_format_*)"
+    echo "7) TRUNCATE * hosts (hosts, host_details, host_oss, host_identifiers)"
+    echo "8) TRUNCATE * tasks (tasks, task_preferences, task_files, task_alerts)"
+    echo "9) TRUNCATE * targets (targets, targets_login_data)"
+    echo -e "${RED}10) RESET reinicio de la base de datos (borro la db para volverla a generar vacía)" ${NC}
     read -p "Selecciona una opción (1-9): " opcion
 fi
 
@@ -1173,17 +1174,24 @@ WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '${DAYS} days'));
     systemctl restart openvasd
     ;;
 
-  2)
-    echo "Borrando archivos físicos de los feeds..."
-    systemctl stop gvmd ospd-openvas
-    # [x]: /var/lib/gvm/scap-data/ - CVEs, CPEs, OVAL. 55 
-    # [x]: /var/lib/gvm/cert-data/ - CERT-Bund, DFN-CERT... 56 
-    # [x]: /var/lib/gvm/plugins/ - NVTs (scripts NASL), nasl-data
-    rm -rf /var/lib/gvm/scap-data/* /var/lib/gvm/cert-data/* /var/lib/openvas/plugins/*
-    systemctl start gvmd ospd-openvas
-    echo "Archivos eliminados (/var/lib/gvm/scap-data/*, /var/lib/gvm/cert-data/* y /var/lib/openvas/plugins/*)."
-    ;;
+ 2)
+   # 1 Borro archivos físicos
+   echo "Borrando archivos físicos de los feeds..."
+   systemctl stop gvmd ospd-openvas
+   # [x]: /var/lib/gvm/scap-data/ - CVEs, CPEs, OVAL. 55
+   # [x]: /var/lib/gvm/cert-data/ - CERT-Bund, DFN-CERT... 56
+   # [x]: /var/lib/gvm/plugins/ - NVTs (scripts NASL), nasl-data
+   rm -rf /var/lib/gvm/scap-data/* /var/lib/gvm/cert-data/* /var/lib/openvas/plugins/*
+   systemctl start gvmd ospd-openvas
+   echo "Archivos eliminados (/var/lib/gvm/scap-data/*, /var/lib/gvm/cert-data/* y /var/lib/openvas/plugins/*)."
 
+   # 2 Reinicio servicios
+   systemctl restart postgresql
+   systemctl restart gvmd
+   systemctl restart gsad
+   systemctl restart ospd-openvas
+   systemctl restart openvasd
+   ;;
 
   3)
     echo "Limpiando registros vacíos y optimizando DB..."
@@ -1212,6 +1220,19 @@ WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '${DAYS} days'));
     ;;
 
   5)
+    echo "Borrando feeds de PostgreSQL..."
+    sudo -u $DB_USER psql -d $DB_NAME -c "
+	TRUNCATE TABLE nvt CASCADE;
+	TRUNCATE TABLE nvt_families CASCADE;
+	TRUNCATE TABLE cves CASCADE;
+	TRUNCATE TABLE oval_definitions CASCADE;
+	TRUNCATE TABLE cpes CASCADE;
+	TRUNCATE TABLE cert_data CASCADE;
+	"
+    echo "Hecho."
+    ;;
+
+  6)
     echo "Borrando reports..."
     sudo -u $DB_USER psql -d $DB_NAME -c "
     TRUNCATE alerts, results, reports, report_hosts, report_host_details, report_format_params, report_format_param_options, report_formats RESTART IDENTITY CASCADE;
@@ -1219,7 +1240,7 @@ WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '${DAYS} days'));
     echo "Hecho."
     ;;
 
-  6)
+  7)
     echo "Borrando hosts..."
     sudo -u $DB_USER psql -d $DB_NAME -c "
     TRUNCATE hosts, host_details, host_oss, host_identifiers RESTART IDENTITY CASCADE;
@@ -1227,7 +1248,7 @@ WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '${DAYS} days'));
     echo "Hecho."
     ;;
 
-  7)
+  8)
     echo "Borrando tasks..."
     sudo -u $DB_USER psql -d $DB_NAME -c "
     TRUNCATE tasks, task_preferences, task_files, task_alerts RESTART IDENTITY CASCADE;
@@ -1235,7 +1256,7 @@ WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '${DAYS} days'));
     echo "Hecho."
     ;;
 
-  8)
+  9)
     echo "Borrando targets..."
     sudo -u $DB_USER psql -d $DB_NAME -c "
     TRUNCATE targets, targets_login_data RESTART IDENTITY CASCADE;
@@ -1243,7 +1264,7 @@ WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '${DAYS} days'));
     echo "Hecho."
     ;;
 
-  9)
+  10)
     echo "Borrando base de datos completa de greenbone..."
     echo -e "${RED}🚨 Al borrar la base de datos se borrarán todos los datos (incluidos los feeds) y se iniciará con una instalación limpia."
     echo -e "${RED}🚨 Se perderán usuarios, configuraciones y resultados previos." ${NC}
