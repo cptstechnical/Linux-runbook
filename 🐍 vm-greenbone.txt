@@ -1242,6 +1242,7 @@ WHERE creation_time < EXTRACT(EPOCH FROM (NOW() - INTERVAL '${DAYS} days'));
 
 	# Reconstruir cache y vaciar la DB de feeds
 	echo -e "${YELLOW}Reconstruyo cache y vacio la base de datos de feeds" ${NC}
+	sudo runuser -u gvm -- greenbone-feed-sync --type all
 	sudo runuser -u gvm -- gvmd --rebuild --verbose
     ;;
 
