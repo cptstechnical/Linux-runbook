@@ -1,0 +1,19 @@
+===========================================================================================================
+=============[ N  E  T  D  A  T  A  ]======================================================================
+# Netdata sirve para monitorizar el (rendimiento, hardware.. etc) solo el servidor en el que lo vas a instalar 
+
+# ⚠️ ESTE SERVICIO SIRVE PARA MONITORIZAR, PEOR SOLO MONITORIZA EL EQUIPO EN EL QUE ESTÉ INSTALADO... (RAM,CPU ETC A TRAVÉS DE WEB)
+https://learn.netdata.cloud/docs/netdata-agent/installation/linux/offline-systems
+
+# preparo el paquete de instalación
+curl https://get.netdata.cloud/kickstart.sh > /tmp/netdata-kickstart.sh
+sh /tmp/netdata-kickstart.sh --release-channel stable --prepare-offline-install-source ./netdata-offline
+
+# realizo la instalación
+cd /netdata-offline
+./kickstart.sh
+./install.sh
+
+# entro en la web
+http://<IP-SERVER>:19999/
+# dentro de la web, página principal hay que pulsar en : Skip and use the dashboard anonymously.
