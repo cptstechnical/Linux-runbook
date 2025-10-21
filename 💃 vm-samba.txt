@@ -349,3 +349,59 @@ vim /etc/samba/smb.conf
 --------------------------------------------------------------------------------------
 
 
+
+
+
+
+# ===============================================================================================================================================================================
+# ===============================================================================================================================================================================
+# ===============================================================================================================================================================================
+# ===============================================================================================================================================================================
+[💃 vm-samba con USUARIOS SAMBA]:
+[global]
+    #server string = Samba Server %v
+    netbios name = DOMINIO-HOST
+    # Grupo de trabajo
+    workgroup = DOMINIO
+    # Nivel de seguridad
+    security = user
+    map to guest = Bad User
+    map acl inherit = yes
+    # Logs
+    log level = 2
+    max log size = 1024
+    log file = /var/log/samba/%I.log
+    # Deshabilitamos impresoras
+    load printers = no
+    disable spoolss = yes
+    printing = bsd
+    printcap name = /dev/null
+    # Links simbolicos
+    follow symlinks = yes
+    wide links = yes
+    unix extensions = no
+    # No mostramos ni como oculto
+    veto files = /~*/lost+found/
+    # Ocultamos ficheros de MAC OS
+    hide files = /.DS_Store/
+    # Prohibimos ficheros que coincidan con
+    #hide special files = yes
+    max xmit = 131072
+    # Forzamos minimo protocolo
+    min protocol = SMB2
+    #min protocol = NT1
+    # Permisos por defecto para todos los recursos
+    create mask = 666
+    directory mask = 777
+    writable = yes
+    read only = no
+    # Reiniciamos variables de sesión y bloqueos de archivos cuando el número de conexiones activas del usuario llega a cero.
+    reset on zero vc = yes
+
+# Share Definitions
+[Carpeta]
+    # Logistica recibe trabajos desde los clientes y va dejando aqui los trabajos hasta que se lanza un pedido de preimpresion
+    comment = Comentario cuando ponga el raton encima
+    path = /datos/carpeta-1
+    valid users = Administrador, usuariosamba-1, usuariosamba-2
+
