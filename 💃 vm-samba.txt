@@ -245,3 +245,107 @@ mkdir /ce-500/log
 touch /ce-500/log/log.txt
 sudo chown root:root /ce-500/log/log.txt
 sudo chmod 644 /ce-500/log/log.txt
+
+
+# ===============================================================================================================================================================================
+# ===============================================================================================================================================================================
+# ===============================================================================================================================================================================
+# ===============================================================================================================================================================================
+[💃 vm-samba con ACTIVE-DIRECTORY]:
+
+vim /etc/samba/smb.conf
+--------------------------------------------------------------------------------------
+[global]
+    # Grupo de trabajo, es necesario para poder unirlo al dominio
+    workgroup = DOMINIO
+    # Metodo de autentiacion contra Active Directory
+    security = ads
+    # A que dominio pertenece este servidor
+    realm = dominio.local
+    # Para no especificar
+    winbind use default domain = yes
+    # Habilitamos la enumeración de usuarios y grupos contra el DC
+    winbind enum users = yes
+    winbind enum groups = yes
+    # Mapeo de usuarios
+    idmap config *:backend = tdb
+    idmap config *:range = 700001-800000
+    # Habilitamos las ACLs extendidas // Deshabilitar ?
+    vfs objects = acl_xattr
+    # Herencia de permisos en subcarpetas
+    map acl inherit = yes
+    # Deactivamos auth basada en NTLM (heredado)
+    ntlm auth = no
+    # Version minima de samba ( 3.00 >= Win 8)
+    #server min protocol = SMB3_00
+    server min protocol = NT1
+    protocol = SMB2
+    # Firma la comunicación, evita MITM y SMB Relay
+    server signing = required
+    server string = "File Server"
+    disable netbios = yes
+    lm announce = no
+    local master = no
+    # Deshabilitamos el servicio de impresion
+    load printers = no
+    printing = bsd
+    printcap name = /dev/null
+    disable spoolss = yes
+    # Configuracion de logs
+    #log level = 1
+    log level = 1 auth:3 winbind:3 rpc_srv:1 rpcd_classic:0 rpcd_mdssvc:2 rpcd_spoolss:0 rpcd_winreg:0
+    #log file = /var/log/samba/%I.log
+    max log size = 10240
+    # Links simbolicos
+    follow symlinks = yes
+    wide links = yes
+    unix extensions = no
+    # Valores por defecto de cada recurso compartido
+    writable = yes
+    guest ok = no
+    browsable = yes
+    create mask = 666
+    directory mask = 777
+    # Prohibo almacenar estos archivos
+    #veto files = /._.DS_Store/.DS_Store/Thumbs.db/desktop.ini/
+    hide files = /._.DS_Store/.DS_Store/Thumbs.db/desktop.ini/
+    # Mapeo de usuarios invitados
+    map to guest = Bad User
+    # Tamaño máximo de paquete 128KB (Def:64KB), mejora rendimiento
+    max xmit = 131072
+    # Habilitamos papelera para todos los recursos
+    #vfs objects = recycle
+    #recycle:repository = /datos/Papelera
+    #recycle:keeptree = yes
+    #recycle:versions = yes
+    #recycle:exclude = *.tmp|*.temp|*.o|*.obj|~$*|*.~??|*.log|*.trace|*.TMP
+    #recycle:excludedir = /tmp|/temp|/cache
+    #recycle:noversions = *.doc|*.ppt|*.dat|*.ini
+    #recycle:minsize = 10
+    #recycle:maxsize = 20971520
+    # Reiniciamos variables de sesión y bloqueos de archivos cuando
+    # el número de conexiones activas del usuario llega a cero.
+    reset on zero vc = yes
+    # Auditoria completa de actividad
+    vfs objects = full_audit
+    full_audit:prefix = %u|%I|%S
+    full_audit:success = mkdirat write renameat unlinkat
+    ##full_audit:success = open close write unlink rename mkdir rmdir
+    ##full_audit:success = open opendir unlink
+    full_audit:failure = none
+    full_audit:facility = local5
+    full_audit:priority = NOTICE
+    # mkdirat: Crear carpetas
+    # rmdir: Borrar carpetas
+    # pread: Abrir archivos
+    # pwrite: Crear ficheros (o copiar en una ruta)
+    # renameat: Renombrado de archivos
+    # unlinkat: Borrado de archivos
+
+[Carpeta]
+    path = /datos/carpeta-1
+    valid users = administrador, user.dominio
+...
+--------------------------------------------------------------------------------------
+
+
