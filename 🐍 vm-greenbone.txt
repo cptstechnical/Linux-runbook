@@ -1366,8 +1366,8 @@ crontab -e
 00 6 * * * /usr/sbin/ntpdate -s hora.roa.es
 # A la 01:00 AM todos los días, reinicio servicios y sincronizadores
 00 1 * * * /usr/bin/greenbone-toolbox 4 >> /var/log/gvm-feed.log 2>&1
-# A las 23:00 (11 PM), solo el primer viernes del mes, modo mantenimiento
-00 23 1-7 * 5 /usr/bin/greenbone-toolbox 1 >> /var/log/greenbone-toolbox.log 2>&1
+# A las 23:00 (11 PM), todos los viernes del mes, modo mantenimiento
+00 23 * * 5 /usr/bin/greenbone-toolbox 1 >> /var/log/greenbone-toolbox.log 2>&1
 # A las 21:00, todos los días, VACUUM db 
 00 21 * * * /usr/bin/greenbone-toolbox 3 >> /var/log/greenbone-system.log 2>&1
 ------------------------------------------------------------------------
